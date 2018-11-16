@@ -85,10 +85,10 @@ return [
       // You can also use closures do build and return the where clause
       // to bring the sales made in the last two months only of example
       'sales' => function ($pdo, $conf) {
-        # $pdo ⟶ is connection to the target database in case you want
-        # to make queries
+        # $pdo ⟶ connection to the target database in case you want to
+        # make queries before assemble the filter
         #
-        # $conf ⟶ is the current configuration array defined in the datashot
+        # $conf ⟶ the current configuration array defined in the datashot
         # configuration file
 
         $now = new DateTime();
@@ -105,16 +105,17 @@ return [
 
     // Optional generic/fallback where clause for all tables
     // 'where' => 'true ORDER BY 1 LIMIT 10000'
-  ]
+  ],
 
   'sixmonths' => [
     // If you call `bin/datashot --specs sixmonths` it will be using this
     // configuration instead
     //
-    // ALL configurtation entries inherit from the 'default' entry
-    // You should override only what need to be overwriten
-
+    // ALL configuration entries inherit from the 'default' entry
+    // You should override only what need to be overwritten
     'wheres' => [
+      // Override the WHERE clause for the sales table in order to bring
+      // sales from the last six months, instead of the last two months
       'sales' => function () {
         // ...
 
