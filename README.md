@@ -3,13 +3,13 @@
 A tool for taking partial and minified database snapshot por testing and
 development propurse.
 
-With **Datashot**, instead of taking a full database dump, you can can filter
+With **datashot**, instead of taking a full database dump, you can can filter
 wich rows you want to dump in order to come up with a downsized database
 snapshot.
 
 ## Requirements
 
-To install and run Datashot you must have:
+To install and run **datashot** you must have:
 
  * PHP >= 5.6 with PDO extension
  * [Composer](https://getcomposer.org/) dependency manager
@@ -18,13 +18,13 @@ To install and run Datashot you must have:
 
 ## Installing
 
-Install as a regular package via composer:
+Install it as a regular package via composer:
 
     composer require jairocgr/datashot
 
 ## Usage
 
-After requiring **Datashot**, you can call it as a php command line tool:
+After requiring **datashot**, you can call it as a php command line tool:
 
     php vendor/bin/snapper --help
 
@@ -32,17 +32,17 @@ To take a database snapshot, just call it:
 
     php vendor/bin/datashot --specs default
 
-**Datashot** will look for a file named `datashot.config.php` at the current
-directory and search for the `default` configuration array inside it:
+The **datashot** will lookup for a file named `datashot.config.php` inside the
+current directory and search for the `default` configuration array:
 
 ```php
 return [
 
-  // Datashot's configuration file named "datashot.config.php"
+  // datashot's configuration file named "datashot.config.php"
 
   // A configuration array entry
   'default' => [
-    'driver'    => 'mysql', // currently mysql only
+    'driver' => 'mysql', // currently mysql only
 
     'host' => 'localhost',
     'port' => '3306',
@@ -64,8 +64,8 @@ return [
     // the current dir will be used
     'output_dir' => 'storage/snaps/',
 
-    // By default the configuration name with .gz|sql extension will be used
-    // as the snapshot file name
+    // By default the configuration name with .gz|sql extension will be
+    // used as the snapshot file name
     'output_file' => 'my_crm_devsnap.gz',
 
     // Compress the database snapshot (via gzip)
@@ -73,8 +73,8 @@ return [
 
     // WHERE clauses specification to take a partial table dump
     //
-    // Datashot will dump only the rows by the given WHERE condition,
-    // ommited tables will be dumped fully
+    // Datashot will dump only the rows matched by the given WHERE condition
+    // Omitted tables will be dumped fully
     'wheres' => [
       // Dont bring deleted users
       'user' => 'deleted IS FALSE',
@@ -82,14 +82,14 @@ return [
       // Bring the last 1000 log entries only
       'user_log' => 'true ORDER BY logid LIMIT 1000',
 
-      // You can also use closures do build and return the where clause
-      // to bring the sales made in the last two months only of example
+      // You can also use closures to build and return the where clause
+      // to bring sales made in the last two months only
       'sales' => function ($pdo, $conf) {
         # $pdo ⟶ connection to the target database in case you want to
-        # make queries before assemble the filter
+        # make queries before assemble the WHERE
         #
-        # $conf ⟶ the current configuration array defined in the datashot
-        # configuration file
+        # $conf ⟶ the current configuration array defined in the configuration
+        # file
 
         $now = new DateTime();
         $interval = DateInterval::createFromDateString('2 months');
@@ -108,14 +108,15 @@ return [
   ],
 
   'sixmonths' => [
-    // If you call `bin/datashot --specs sixmonths` it will be using this
+    // If you call `vendor/bin/datashot --specs sixmonths` it will be using this
     // configuration instead
     //
-    // ALL configuration entries inherit from the 'default' entry
-    // You should override only what need to be overwritten
+    // ALL configuration entries inherit from the 'default' array
+    // You should override only what needs to be overwritten
     'wheres' => [
-      // Override the WHERE clause for the sales table in order to bring
-      // sales from the last six months, instead of the last two months
+
+      // Override the WHERE clause for the sales table in order to bring sales
+      // from the last six months, instead of the default last two months
       'sales' => function () {
         // ...
 
