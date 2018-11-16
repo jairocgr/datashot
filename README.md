@@ -1,10 +1,10 @@
 # Datashot Database Snapper
 
 A tool for taking partial and minified database snapshot por testing and
-development propurse.
+development purpose.
 
 With **datashot**, instead of taking a full database dump, you can filter
-wich rows you want to dump to come up with a downsized database
+which rows you want to dump in order to come up with a downsized database
 snapshot.
 
 ## Requirements
@@ -32,7 +32,7 @@ To take a database snapshot, call:
 
     php vendor/bin/datashot --specs default
 
-The **datashot** will lookup for a file named `datashot.config.php` inside the
+**Datashot** will lookup for a file named `datashot.config.php` inside the
 current directory and search for the `default` configuration array:
 
 ```php
