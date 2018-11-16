@@ -3,8 +3,8 @@
 A tool for taking partial and minified database snapshot por testing and
 development propurse.
 
-With **datashot**, instead of taking a full database dump, you can can filter
-wich rows you want to dump in order to come up with a downsized database
+With **datashot**, instead of taking a full database dump, you can filter
+wich rows you want to dump to come up with a downsized database
 snapshot.
 
 ## Requirements
@@ -28,7 +28,7 @@ After requiring **datashot**, you can call it as a php command line tool:
 
     php vendor/bin/snapper --help
 
-To take a database snapshot, just call it:
+To take a database snapshot, call:
 
     php vendor/bin/datashot --specs default
 
@@ -42,7 +42,7 @@ return [
 
   // A configuration array entry
   'default' => [
-    'driver' => 'mysql', // currently mysql only
+    'driver' => 'mysql', // currently, mysql only
 
     'host' => 'localhost',
     'port' => '3306',
@@ -79,11 +79,11 @@ return [
       // Dont bring deleted users
       'user' => 'deleted IS FALSE',
 
-      // Bring the last 1000 log entries only
+      // Bring the last 1000 log entries
       'user_log' => 'true ORDER BY logid LIMIT 1000',
 
       // You can also use closures to build and return the where clause
-      // to bring sales made in the last two months only
+      // to bring sales made in the last two months
       'sales' => function ($pdo, $conf) {
         # $pdo ⟶ connection to the target database in case you want to
         # make queries before assemble the WHERE
@@ -115,8 +115,8 @@ return [
     // You should override only what needs to be overwritten
     'wheres' => [
 
-      // Override the WHERE clause for the sales table in order to bring sales
-      // from the last six months, instead of the default last two months
+      // Override the WHERE clause for the sales table to bring sales from the
+      // last six months, instead of the default last two months
       'sales' => function () {
         // ...
 
