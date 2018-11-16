@@ -18,23 +18,22 @@ To install and run Datashot you must have:
 
 ## Installing
 
-Install Datashot via composer as a regular package:
+Install as a regular package via composer:
 
     composer require jairocgr/datashot
 
 ## Usage
 
-After requiring Datashot via composer, you can call it as a php command line
-tool:
+After requiring **Datashot**, you can call it as a php command line tool:
 
     php vendor/bin/snapper --help
 
-To take a database snapshot, you should call:
+To take a database snapshot, just call it:
 
     php vendor/bin/datashot --specs default
 
-Datashot will look for a file `datashot.config.php` at the current directory and
-search for the `default` configuration array inside it:
+**Datashot** will look for a file named `datashot.config.php` at the current
+directory and search for the `default` configuration array inside it:
 
 ```php
 return [
@@ -65,9 +64,9 @@ return [
     // the current dir will be used
     'output_dir' => 'storage/snaps/',
 
-    // The snapshot file name, by default the database name with .gz or .sql
-    // extension will be used
-    'output_file' => 'my_crm_snap.gz',
+    // By default the configuration name with .gz|sql extension will be used
+    // as the snapshot file name
+    'output_file' => 'my_crm_devsnap.gz',
 
     // Compress the database snapshot (via gzip)
     'compress' => TRUE,
@@ -83,8 +82,14 @@ return [
       // Bring the last 1000 log entries only
       'user_log' => 'true ORDER BY logid LIMIT 1000',
 
-      // Bing the sales made in the last two months only
-      'sales' => function ($pdo) {
+      // You can also use closures do build and return the where clause
+      // to bring the sales made in the last two months only of example
+      'sales' => function ($pdo, $conf) {
+        # $pdo ⟶ is connection to the target database in case you want
+        # to make queries
+        #
+        # $conf ⟶ is the current configuration array defined in the datashot
+        # configuration file
 
         $now = new DateTime();
         $interval = DateInterval::createFromDateString('2 months');
@@ -102,6 +107,27 @@ return [
     // 'where' => 'true ORDER BY 1 LIMIT 10000'
   ]
 
+  'sixmonths' => [
+    // If you call `bin/datashot --specs sixmonths` it will be using this
+    // configuration instead
+    //
+    // ALL configurtation entries inherit from the 'default' entry
+    // You should override only what need to be overwriten
+
+    'wheres' => [
+      'sales' => function () {
+        // ...
+
+        $interval = DateInterval::createFromDateString('6 months');
+
+        // ...
+
+        // WHERE sale_date greater than six months
+        return "sale_date > {$cutoff}";
+      }
+    ]
+  ]
+
 ];
 ```
 
@@ -110,7 +136,7 @@ return [
 With the snapshot file in hands, you can restore it as a regular database dump:
 
 ```
-gzip < storage/snaps/my_crm_snap.gz | mysql -h localhost dbname
+gzip < storage/snaps/my_crm_devsnap.gz | mysql -h localhost dbname
 ```
 
 ## License
