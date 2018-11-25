@@ -53,7 +53,7 @@ class GzipFileWriter implements FileWriter
 
     public function newLine($count = 1)
     {
-        $this->write(str_repeat(PHP_EOL, $count));
+        return $this->write(str_repeat(PHP_EOL, $count));
     }
 
     private function fopen()

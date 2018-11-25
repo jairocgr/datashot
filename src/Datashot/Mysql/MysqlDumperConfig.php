@@ -11,6 +11,11 @@ class MysqlDumperConfig
 {
     use DataBag;
 
+    /**
+     * @var MysqlDumpFileWriter
+     */
+    private $outputFile;
+
     public function setWhereClause($table, $where)
     {
         $this->set("wheres.{$table}", $where);
@@ -22,17 +27,24 @@ class MysqlDumperConfig
     }
 
     /**
-     * @return FileWriter
+     * @return MysqlDumpFileWriter
      */
     public function getOutputFile()
     {
-        $filepath = $this->getOutputFilePath();
+        if ($this->outputFile == NULL) {
 
-        if ($this->compressOutput()) {
-            return new GzipFileWriter($filepath);
-        } else {
-            return new TextFileWriter($filepath);
+            $filepath = $this->getOutputFilePath();
+
+            if ($this->compressOutput()) {
+                $writer = new GzipFileWriter($filepath);
+            } else {
+                $writer = new TextFileWriter($filepath);
+            }
+
+            $this->outputFile = new MysqlDumpFileWriter($writer);
         }
+
+        return $this->outputFile;
     }
 
     private function getOutputFilePath()
@@ -41,8 +53,27 @@ class MysqlDumperConfig
                $this->conf->get('output_file', $this->conf->database);
     }
 
-    private function compressOutput()
+    /**
+     * @return bool
+     */
+    public function compressOutput()
     {
         return $this->conf->get('compress', true);
+    }
+
+    /**
+     * @return bool
+     */
+    public function dumpAll()
+    {
+        return ! $this->conf->get('data_only', false);
+    }
+
+    /**
+     * @return bool
+     */
+    public function dumpData()
+    {
+        return ! $this->conf->get('no_data', false);
     }
 }

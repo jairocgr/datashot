@@ -2,8 +2,10 @@
 
 namespace Datashot\Mysql;
 
+use Datashot\IO\FileWriter;
 use Datashot\Lang\Observable;
 use PDO;
+use RuntimeException;
 
 class MysqlDatabaseSnapper
 {
@@ -18,7 +20,7 @@ class MysqlDatabaseSnapper
     private $bus;
 
     /**
-     * @var TextFileWriter
+     * @var MysqlDumpFileWriter
      */
     private $output;
 
@@ -113,17 +115,19 @@ class MysqlDatabaseSnapper
     {
         $this->snapping();
 
+        $this->touchOutput();
+
         $this->connect();
 
         // $this->setupConnectionFile();
 
-        $this->touch();
+        $start = microtime(true);
 
         if ($this->dumpAll()) {
-            $this->dumpSchema();
+            # dumping database schema
+            $this->dumpTablesDdl();
+            $this->dumpViews();
         }
-
-        $start = microtime(true);
 
         if ($this->dumpData()) {
             $this->dumpTables();
@@ -151,9 +155,18 @@ class MysqlDatabaseSnapper
         ]);
     }
 
-    private function dumpSchema()
+    private function dumpTablesDdl()
     {
-        $this->dumper->dumpSchema();
+        $this->eachTable(function ($table) {
+            $this->dumpTableDdl($table);
+        });
+    }
+
+    private function dumpViews()
+    {
+        $this->eachView(function ($view) {
+            $this->dumpViewDdl($view);
+        });
     }
 
     private function dumpActions()
@@ -177,7 +190,8 @@ class MysqlDatabaseSnapper
         $results = $this->pdo->query("
             SELECT table_name
             FROM information_schema.tables
-            where table_schema='{$this->conf->database}'
+            where table_schema='{$this->conf->database}' AND
+                  table_type == 'BASE TABLE'
         ");
 
         foreach ($results as $res) {
@@ -185,6 +199,23 @@ class MysqlDatabaseSnapper
             $table = $res->table_name;
 
             call_user_func($closure, $table);
+        }
+    }
+
+    private function eachView($closure)
+    {
+        $results = $this->pdo->query("
+            SELECT table_name
+            FROM information_schema.tables
+            where table_schema='{$this->conf->database}' AND
+                  table_type == 'VIEW'
+        ");
+
+        foreach ($results as $res) {
+
+            $view = $res->table_name;
+
+            call_user_func($closure, $view);
         }
     }
 
@@ -229,48 +260,6 @@ class MysqlDatabaseSnapper
             'table' => $table,
             'execution_time' => ($end - $start)
         ]);
-    }
-
-    private function touch()
-    {
-        $this->output = $this->conf->getOutputFile();
-
-        $outputDir =
-
-        $this->mkdir($outputDir);
-
-        $this->snapfile = $outputDir . DIRECTORY_SEPARATOR .
-
-
-        $this->notify(static::CREATING_SNAP_FILE, [
-            'snap_file' => $this->snapfile
-        ]);
-
-        if (file_exists($this->snapfile) && !unlink($this->snapfile)) {
-            throw new RuntimeException(
-                "Não foi possível limpar o arquivo de snap \"{$this->snapfile}\""
-            );
-        }
-
-        if (!touch($this->snapfile)) {
-            throw new RuntimeException(
-                "Não foi possível escrever o arquivo \"{$this->snapfile}\""
-            );
-        }
-    }
-
-    private function mkdir($dir)
-    {
-        if (is_dir($dir)) {
-            // Diretório já existe, n há a necessidade de recria-lo
-            return;
-        }
-
-        if (!@mkdir($dir, 0755, true)) {
-            throw new RuntimeException(
-                "Não foi possível criar o diretorio de \"{$dir}\""
-            );
-        }
     }
 
     private function appendOutput($command)
@@ -384,17 +373,19 @@ class MysqlDatabaseSnapper
 
     private function dumpAll()
     {
-        return ! $this->conf->get('data_only', false);
+        return $this->conf->dumpAll();
     }
 
     private function dumpData()
     {
-        return ! $this->conf->get('no_data', false);
+        return $this->conf->dumpData();
     }
 
     private function dumpTables()
     {
-        $this->dumper->dumpTables();
+        $this->eachTable(function ($table) {
+            $this->dumpTableData($table);
+        });
     }
 
     private function snapping()
@@ -463,4 +454,127 @@ class MysqlDatabaseSnapper
     {
         $this->append("\nSELECT \"{$string}\";\n");
     }
+
+    private function dumpTableDdl($table)
+    {
+        $ddl = $this->getCreateTableDdl($table);
+
+        $this->output->comment("ddl for \"{$table}\" table ");
+        $this->output->message("Creating table {$table}...");
+        $this->output->command($ddl);
+        $this->output->newLine(2);
+    }
+
+    private function dumpViewDdl($table)
+    {
+        $ddl = $this->getCreateTableDdl($table);
+
+        $this->output->comment("ddl for \"{$table}\" view");
+        $this->output->message("Creating view {$table}...");
+        $this->output->command($ddl);
+        $this->output->newLine(2);
+    }
+
+    private function getCreateTableDdl($table)
+    {
+        $res = $this->first("SHOW CREATE TABLE {$table}");
+
+        if ($res == FALSE) {
+            throw new RuntimeException(
+                "Can't get create table ddl for \"{$table}\" table"
+            );
+        }
+
+        return $res[1];
+    }
+
+    private function first($query)
+    {
+        $stmt = $this->pdo->query($query);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function touchOutput()
+    {
+        $this->output = $this->conf->getOutputFile();
+    }
+
+    private function dumpTableData($table)
+    {
+        $where = $this->buildWhereClause($table);
+
+        $stmt = $this->pdo->query("SELECT * FROM `{$table}` WHERE {$where}");
+
+        $this->output->comment("Dumping data for table \"{$table}\"");
+        $this->output->comment("  WHERE {$where}");
+        $this->output->message("Restoring {$table}...");
+        $this->output->comment("ALTER TABLE `{$table}` DISABLE KEYS");
+        $this->output->comment("SET autocommit = 0");
+
+        $first = true;
+
+        foreach ($stmt as $row) {
+
+            if ($first) {
+
+                $this->output->writeln("INSERT INTO `{$table}` VALUES ");
+
+                $first = true;
+
+            } else {
+                $this->output->write(', ');
+            }
+
+            $values = $this->toValues($table, $row);
+
+            $this->output->write('(' . implode(", ", $values) . ')');
+        }
+
+        if ($stmt->rowCount() > 0) {
+            $this->output->writeln(";");
+        }
+
+
+        $this->output->comment("ALTER TABLE `{$table}` ENABLE KEYS");
+        $this->output->comment("COMMIT");
+    }
+
+    private function toValues($table, $row)
+    {
+        if ($this->conf->hasRowTransformer($table)) {
+            $transformer = $this->conf->getRowTransformer($table);
+
+            call_user_func($transformer, $row);
+        }
+
+        $columnTypes = $this->getColumnTypes($table);
+
+        $values = [];
+
+        foreach ($row as $colName => $colValue) {
+            $values[] = $this->escape($colValue, $columnTypes[$colName]);
+        }
+
+        return $values;
+    }
+
+    private function escape($value, $type)
+    {
+        if (is_null($value)) {
+            return "NULL";
+        } elseif ($this->dumpSettings['hex-blob'] && $type['is_blob']) {
+            if ($type['type'] == 'bit' || !empty($colValue)) {
+                return "0x${value}";
+            } else {
+                return "''";
+            }
+        } elseif ($type['is_numeric']) {
+            return $value;
+        }
+
+        return $this->pdo->quote($value);
+    }
+
+
 }
