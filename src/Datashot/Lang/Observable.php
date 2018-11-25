@@ -2,6 +2,7 @@
 
 namespace Datashot\Lang;
 
+
 trait Observable
 {
     /** @var array */
@@ -12,7 +13,7 @@ trait Observable
         $this->addListener($event, $callback);
     }
 
-    private function addListener($event, Closure $callback)
+    private function addListener($event, $callback)
     {
         if (!isset($this->listeners[$event])) {
             $this->listeners[$event] = [];
@@ -27,7 +28,7 @@ trait Observable
             ? $this->listeners[$event] : [];
 
         foreach ($listeners as $listener) {
-            call_user_func($listener, $args);
+            call_user_func_array($listener, $args);
         }
     }
 }

@@ -7,15 +7,21 @@ USE datashot;
 CREATE TABLE tenants (
   id integer not null auto_increment primary key,
   handle varchar(24) not null,
-  name varchar(128) not null
+  name varchar(128) not null,
+  title varchar(160) GENERATED ALWAYS AS (concat(name,' (', handle, ')'))
 );
 
 CREATE TABLE users (
   id integer not null auto_increment primary key,
   login varchar(24) not null,
   active boolean not null default true,
+  phone varchar(32) not null,
+  password varchar(40),
   tenant_id integer REFERENCES tenants(id) ON UPDATE CASCADE
 );
+
+ALTER TABLE users ADD
+  INDEX user_login_index (login);
 
 CREATE TABLE logs (
   id integer not null auto_increment primary key,
@@ -33,31 +39,32 @@ CREATE TABLE news (
 DELIMITER ;;
 CREATE TRIGGER users_AFTER_UPDATE AFTER UPDATE ON users FOR EACH ROW
 BEGIN
-  UPDATE users SET login=new.login WHERE id=new.id;
+  UPDATE tenants SET name = concat(name, ' (', new.login, ')')
+  WHERE tenants.id=new.tenant_id;
 END
 ;;
 DELIMITER ;
 
-INSERT INTO tenants VALUES
+INSERT INTO tenants (id, handle, name) VALUES
   (1, 'tenant01', 'Test Tenant 01'),
   (2, 'tenant02', 'Test Tenant 02'),
   (3, 'tenant03', 'Test Tenant 03'),
   (4, 'tenant04', 'Test Tenant 04');
 
 INSERT INTO users VALUES
-  (101, 'usr101', true, 1),
-  (102, 'usr102', true, 1),
-  (103, 'usr103', true, 1),
+  (101, 'usr101', true, '+55 67 99168-2101', sha1('testpw'), 1),
+  (102, 'usr102', true, '+55 67 99168-2102', sha1('testpw'), 1),
+  (103, 'usr103', true, '+55 67 99168-2103', sha1('testpw'), 1),
 
-  (201, 'usr201', false, 2),
-  (202, 'usr202', true, 2),
-  (203, 'usr203', false, 2),
-  (204, 'usr204', true, 2),
+  (201, 'usr201', false, '+55 67 99162-2201', sha1('testpw'), 2),
+  (202, 'usr202', true,  '+55 67 99162-2202', sha1('testpw'), 2),
+  (203, 'usr203', false, '+55 67 99162-2203', sha1('testpw'), 2),
+  (204, 'usr204', true,  '+55 67 99162-2204', sha1('testpw'), 2),
 
-  (301, 'usr301', false, 3),
-  (302, 'usr302', true, 3),
-  (303, 'usr303', false, 3),
-  (304, 'usr304', true, 3);
+  (301, 'usr301', false, '+55 67 99368-2301', sha1('testpw'), 3),
+  (302, 'usr302', true,  '+55 67 99368-2302', sha1('testpw'), 3),
+  (303, 'usr303', false, '+55 67 99368-2303', sha1('testpw'), 3),
+  (304, 'usr304', true,  '+55 67 99368-2304', sha1('testpw'), 3);
 
 INSERT INTO logs VALUES
   (101, 'log101', '2018-01-01 13:30:35'),

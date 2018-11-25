@@ -9,6 +9,8 @@ app/storage/
 
 tests/assets/snapped.gz
 tests/assets/snapped.sql
+tests/assets/snapped.plain.sql
+tests/assets/snapped.expanded.sql
 
 # Laravel 5 & Lumen specific
 public/storage

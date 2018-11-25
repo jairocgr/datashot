@@ -85,11 +85,23 @@ class DatashotTest extends TestCase
             'row_transformers' => [
                 'users' => function ($row) {
 
-                    // echo "transforming {$row->login}\n";
+                    // hidding user phone numbers
+                    $row->phone = "+55 67 99999-1000";
 
                     return $row;
                 }
-            ]
+            ],
+
+            // Event-based hook
+            MysqlDatabaseSnapper::SNAPED => function ($dshot) {
+                $dshot->append("
+
+                  -- Set default user password
+                  SELECT 'Setting user password to default_pw...';
+                  UPDATE users SET password = sha1('default_pw');
+
+                ");
+            }
         ]);
 
         // to test configuration append/merge
@@ -99,8 +111,24 @@ class DatashotTest extends TestCase
             ]
         ]);
 
+        $dshot->on(MysqlDatabaseSnapper::SNAPED, function ($dshot) {
+            $dshot->append("
+                -- Second append
+                SELECT 'Test second event-based hook...';
+            ");
+        });
+
         // test where override
         $dshot->where('log', "created_at > '2018-02-01'");
+
+        $dshot->snap();
+
+        // Test plain text dump
+        $dshot->config([
+            'output_file' => 'snapped.plain',
+
+            'compress' => FALSE
+        ]);
 
         $dshot->snap();
     }
@@ -112,6 +140,11 @@ class DatashotTest extends TestCase
 
     private function assessRestoredSnap()
     {
+        $this->assertFileEquals(
+            "{$this->ASSETS_DIR}/snapped.plain.sql",
+            "{$this->ASSETS_DIR}/snapped.expanded.sql"
+        );
+
         $this->assertTrue(TRUE);
     }
 

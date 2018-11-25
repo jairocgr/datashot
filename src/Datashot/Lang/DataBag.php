@@ -14,7 +14,7 @@ trait DataBag
     }
 
     public function append(array $data) {
-        $this->data = array_merge_recursive($this->data, $data);
+        $this->data = array_replace_recursive($this->data, $data);
     }
 
     public function get($key, $defaultValue = NULL) {

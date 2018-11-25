@@ -28,10 +28,13 @@ class MysqlDatabaseSnapper
         $this->checkPreconditions();
 
         $this->conf = new MysqlDumperConfig($config);
+
+        $this->processEventHooks($config);
     }
 
     public function config(array $config) {
         $this->conf->append($config);
+        $this->processEventHooks($config);
     }
 
     public function where(...$args)
@@ -101,6 +104,10 @@ class MysqlDatabaseSnapper
     const APPENDING          = 'appending';
     const APPENDED           = 'appended';
 
+    private static $EVENTS = [
+        self::SNAPED,
+    ];
+
     /** @var PDO */
     private $pdo;
 
@@ -114,9 +121,11 @@ class MysqlDatabaseSnapper
     {
         $this->snapping();
 
+        $this->connect();
+
         $this->touchOutput();
 
-        $this->connect();
+        $this->flushFileHeader();
 
         // $this->setupConnectionFile();
 
@@ -138,11 +147,11 @@ class MysqlDatabaseSnapper
             $this->dumpFunctions();
         }
 
-        $this->output->close();
-
         $end = microtime(true);
 
         $this->snapped($start, $end);
+
+        $this->output->close();
     }
 
     private function connect()
@@ -382,7 +391,7 @@ class MysqlDatabaseSnapper
 
     private function snapped($start, $end)
     {
-        $this->notify(static::SNAPED, [
+        $this->notify(static::SNAPED, $this, [
             'execution_time' => ($end - $start)
         ]);
     }
@@ -412,29 +421,9 @@ class MysqlDatabaseSnapper
         return $return_var === 0;
     }
 
-    public function append($string)
+    public function append($command)
     {
-        $this->notify(static::APPENDING, [
-            'string' => $string
-        ]);
-
-        $file = gzopen($this->snapfile, 'a');
-
-        if ($file === FALSE) {
-            throw new RuntimeException(
-                "Arquivo \"{$this->snapfile}\" não pode ser aberto!"
-            );
-        }
-
-        $this->throwIfFails(gzwrite($file, $string),
-            "Falha na escrita do arquivo \"{$this->snapfile}\"!"
-        );
-
-        $this->throwIfFails(gzclose($file),
-            "Falha no fechamento do arquivo \"{$this->snapfile}\"!"
-        );
-
-        $this->notify(static::APPENDED);
+        $this->output->writeln($command);
     }
 
     private function appendMsg($string)
@@ -446,7 +435,7 @@ class MysqlDatabaseSnapper
     {
         $ddl = $this->getCreateTableDdl($table);
 
-        $this->output->comment("ddl for \"{$table}\" table ");
+        $this->output->comment("DDL for \"{$table}\" table ");
         $this->output->message("Creating table {$table}...");
         $this->output->command($ddl);
         $this->output->newLine(2);
@@ -456,7 +445,7 @@ class MysqlDatabaseSnapper
     {
         $ddl = $this->getCreateViewDdl($table);
 
-        $this->output->comment("ddl for \"{$table}\" view");
+        $this->output->comment("DDL for \"{$table}\" view");
         $this->output->message("Creating view {$table}...");
         $this->output->command($ddl);
         $this->output->newLine(2);
@@ -505,10 +494,12 @@ class MysqlDatabaseSnapper
         $where = $this->buildWhereClause($table);
         $columns = implode(", ", $this->getColumns($table));
 
-        $stmt = $this->pdo->query("SELECT {$columns} FROM `{$table}` WHERE {$where}");
+        $stmt = $this->pdo->query("
+          SELECT {$columns} FROM `{$table}` WHERE {$where}
+        ");
 
         $this->output->comment("Dumping data for table \"{$table}\"");
-        $this->output->comment("  WHERE {$where}");
+        $this->output->comment(" WHERE {$this->cutoff($where, 68)}");
         $this->output->message("Restoring {$table}...");
         $this->output->command("ALTER TABLE `{$table}` DISABLE KEYS");
         $this->output->command("SET autocommit = 0");
@@ -524,7 +515,7 @@ class MysqlDatabaseSnapper
                 $first = FALSE;
 
             } else {
-                $this->output->write(', ');
+                $this->output->write(",\n");
             }
 
             $values = $this->toValues($table, $row);
@@ -757,5 +748,37 @@ class MysqlDatabaseSnapper
 
         return "DELIMITER ;;" . PHP_EOL . $statement . ";;" . PHP_EOL .
             "DELIMITER ;";
+    }
+
+    private function flushFileHeader()
+    {
+        $this->output->comment("");
+        $this->output->comment("Database dump taked via datashot v1.0.0");
+        $this->output->comment("  https://github.com/jairocgr/datashot");
+        $this->output->comment("");
+        $this->output->comment("{$this->conf->database} at {$this->conf->host} server ");
+        $this->output->comment("timestamp " . date("Y-m-d h:i:s"));
+        $this->output->comment("");
+
+        $this->output->newLine();
+    }
+
+    private function cutoff($string, $maxLenght)
+    {
+        if (strlen($string) > $maxLenght) {
+            return substr($string, 0, $maxLenght - 3 ) . '...';
+        }
+
+        return $string;
+    }
+
+    private function processEventHooks($config)
+    {
+        foreach (static::$EVENTS as $event) {
+            // Check if the config array has a event-based hook
+            if (isset($config[$event]) && is_callable($config[$event])) {
+                $this->on($event, $config[$event]);
+            }
+        }
     }
 }

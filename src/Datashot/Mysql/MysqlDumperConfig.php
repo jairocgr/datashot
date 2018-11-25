@@ -40,7 +40,7 @@ class MysqlDumperConfig
                 $writer = new TextFileWriter($filepath);
             }
 
-            $this->outputFile = new MysqlDumpFileWriter($writer);
+            return new MysqlDumpFileWriter($writer);
         }
 
         return $this->outputFile;
