@@ -141,6 +141,11 @@ With the snapshot file in hands, you can restore it as a regular database dump:
 gzip < storage/snaps/my_crm_devsnap.gz | mysql -h localhost dbname
 ```
 
+## Hat Tipping
+
+I tip my hat to [ifsnop/mysqldump-php](https://github.com/ifsnop/mysqldump-php) 
+for providing insights on how to dump a mysql database via PHP/PDO.
+
 ## License
 
 This project is licensed under the MIT License - see the
