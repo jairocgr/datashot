@@ -2,7 +2,6 @@
 
 namespace Datashot\Mysql;
 
-use Datashot\IO\FileWriter;
 use Datashot\IO\GzipFileWriter;
 use Datashot\IO\TextFileWriter;
 use Datashot\Lang\DataBag;
@@ -47,10 +46,14 @@ class MysqlDumperConfig
         return $this->outputFile;
     }
 
+    /**
+     * @return string
+     */
     private function getOutputFilePath()
     {
-        return $this->conf->get('output_dir', getcwd()) . DIRECTORY_SEPARATOR .
-               $this->conf->get('output_file', $this->conf->database);
+        return $this->get('output_dir', getcwd()) . DIRECTORY_SEPARATOR .
+               $this->get('output_file', $this->database) . '.' .
+               $this->getOutputExtension();
     }
 
     /**
@@ -58,7 +61,7 @@ class MysqlDumperConfig
      */
     public function compressOutput()
     {
-        return $this->conf->get('compress', true);
+        return $this->get('compress', true);
     }
 
     /**
@@ -66,7 +69,7 @@ class MysqlDumperConfig
      */
     public function dumpAll()
     {
-        return ! $this->conf->get('data_only', false);
+        return ! $this->get('data_only', false);
     }
 
     /**
@@ -74,6 +77,23 @@ class MysqlDumperConfig
      */
     public function dumpData()
     {
-        return ! $this->conf->get('no_data', false);
+        return ! $this->get('no_data', false);
+    }
+
+    private function getOutputExtension()
+    {
+        return ($this->compressOutput() ? 'gz' : 'sql');
+    }
+
+    public function hasRowTransformer($table)
+    {
+        $transformers = $this->get('row_transformers');
+
+        return isset($transformers[$table]);
+    }
+
+    public function getRowTransformer($table)
+    {
+        return $this->get("row_transformers.{$table}");
     }
 }

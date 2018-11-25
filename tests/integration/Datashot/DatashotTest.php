@@ -2,7 +2,8 @@
 
 namespace Datashot;
 
-use Datashot\Lang\DataBag;
+use Datashot\Mysql\MysqlDatabaseSnapper;
+use Datashot\Mysql\MysqlDumperConfig;
 use PDO;
 use PHPUnit\Framework\TestCase;
 
@@ -30,7 +31,7 @@ class DatashotTest extends TestCase
 
     private function datashot()
     {
-        $dshot = new Datashot([
+        $dshot = new MysqlDatabaseSnapper([
             'driver' => 'mysql',
 
             'host' => 'localhost',
@@ -48,7 +49,7 @@ class DatashotTest extends TestCase
 
             'output_dir' => $this->ASSETS_DIR,
 
-            'output_file' => 'snapped.gz',
+            'output_file' => 'snapped',
 
             'compress' => TRUE,
 
@@ -62,19 +63,22 @@ class DatashotTest extends TestCase
 
                 'log' => "created_at > '2018-03-01'",
 
-                'user' => function (PDO $pdo, DataBag $conf) {
+                'users' => function (PDO $pdo, MysqlDumperConfig $conf) {
 
                     $excluded = [ $conf->excluded_user ];
                     $selected = [];
 
-                    $stmt = $pdo->query("SELECT login FROM active IS TRUE");
+                    $stmt = $pdo->query("SELECT login FROM users WHERE active IS TRUE");
 
                     foreach ($stmt->fetchAll() as $res) {
                         $selected[] = $res->login;
                     }
 
+                    $selected = "'" . implode("', '", $selected) . "'";
+                    $excluded = "'" . implode("', '", $excluded) . "'";
+
                     return "login IN ({$selected}) and ".
-                           "login NOT INT ({$excluded})";
+                           "login NOT IN ({$excluded})";
                 }
             ]
         ]);
@@ -89,7 +93,7 @@ class DatashotTest extends TestCase
         // test where override
         $dshot->where('log', "created_at > '2018-02-01'");
 
-        $dshot->shot();
+        $dshot->snap();
     }
 
     private function restoreSnap()

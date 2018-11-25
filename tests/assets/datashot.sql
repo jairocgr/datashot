@@ -30,7 +30,6 @@ CREATE TABLE news (
   created_at timestamp not null
 );
 
-
 INSERT INTO tenants VALUES
   (1, 'tenant01', 'Test Tenant 01'),
   (2, 'tenant02', 'Test Tenant 02'),
@@ -64,3 +63,5 @@ INSERT INTO news VALUES
   (103, 'news 103', true,  '2018-03-21 13:30:35'),
   (104, 'news 104', true,  '2018-04-01 13:30:35');
 
+create view datashot.user_log AS
+  select msg, login from logs, users;

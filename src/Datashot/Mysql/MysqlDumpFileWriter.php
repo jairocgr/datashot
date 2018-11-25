@@ -23,7 +23,7 @@ class MysqlDumpFileWriter
 
     public function message($msg)
     {
-        return $this->command("SELECT \"{$msg}\" as msg");
+        return $this->command("SELECT \"{$msg}\"");
     }
 
     public function command($sql)
@@ -44,5 +44,10 @@ class MysqlDumpFileWriter
     public function write($string)
     {
         return $this->writer->write($string);
+    }
+
+    public function close()
+    {
+        $this->writer->close();
     }
 }

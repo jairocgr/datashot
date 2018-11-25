@@ -2,7 +2,6 @@
 
 namespace Datashot\Mysql;
 
-use Datashot\IO\FileWriter;
 use Datashot\Lang\Observable;
 use PDO;
 use RuntimeException;
@@ -133,9 +132,11 @@ class MysqlDatabaseSnapper
             $this->dumpTables();
         }
 
-        if ($this->dumpAll()) {
-            $this->dumpActions();
-        }
+        $this->output->close();
+
+        // if ($this->dumpAll()) {
+        //    $this->dumpActions();
+        //}
 
         $end = microtime(true);
 
@@ -191,7 +192,7 @@ class MysqlDatabaseSnapper
             SELECT table_name
             FROM information_schema.tables
             where table_schema='{$this->conf->database}' AND
-                  table_type == 'BASE TABLE'
+                  table_type = 'BASE TABLE'
         ");
 
         foreach ($results as $res) {
@@ -208,7 +209,7 @@ class MysqlDatabaseSnapper
             SELECT table_name
             FROM information_schema.tables
             where table_schema='{$this->conf->database}' AND
-                  table_type == 'VIEW'
+                  table_type = 'VIEW'
         ");
 
         foreach ($results as $res) {
@@ -467,7 +468,7 @@ class MysqlDatabaseSnapper
 
     private function dumpViewDdl($table)
     {
-        $ddl = $this->getCreateTableDdl($table);
+        $ddl = $this->getCreateViewDdl($table);
 
         $this->output->comment("ddl for \"{$table}\" view");
         $this->output->message("Creating view {$table}...");
@@ -485,7 +486,20 @@ class MysqlDatabaseSnapper
             );
         }
 
-        return $res[1];
+        return $res['Create Table'];
+    }
+
+    private function getCreateViewDdl($table)
+    {
+        $res = $this->first("SHOW CREATE VIEW {$table}");
+
+        if ($res == FALSE) {
+            throw new RuntimeException(
+                "Can't get create table ddl for \"{$table}\" view"
+            );
+        }
+
+        return $this->removeDefiner($res['Create View']);
     }
 
     private function first($query)
@@ -503,24 +517,25 @@ class MysqlDatabaseSnapper
     private function dumpTableData($table)
     {
         $where = $this->buildWhereClause($table);
+        $columns = implode(", ", $this->getColumns($table));
 
-        $stmt = $this->pdo->query("SELECT * FROM `{$table}` WHERE {$where}");
+        $stmt = $this->pdo->query("SELECT {$columns} FROM `{$table}` WHERE {$where}");
 
         $this->output->comment("Dumping data for table \"{$table}\"");
         $this->output->comment("  WHERE {$where}");
         $this->output->message("Restoring {$table}...");
-        $this->output->comment("ALTER TABLE `{$table}` DISABLE KEYS");
-        $this->output->comment("SET autocommit = 0");
+        $this->output->command("ALTER TABLE `{$table}` DISABLE KEYS");
+        $this->output->command("SET autocommit = 0");
 
-        $first = true;
+        $first = TRUE;
 
         foreach ($stmt as $row) {
 
             if ($first) {
 
-                $this->output->writeln("INSERT INTO `{$table}` VALUES ");
+                $this->output->writeln("INSERT INTO `{$table}` ({$columns}) VALUES ");
 
-                $first = true;
+                $first = FALSE;
 
             } else {
                 $this->output->write(', ');
@@ -535,9 +550,11 @@ class MysqlDatabaseSnapper
             $this->output->writeln(";");
         }
 
+        $stmt->closeCursor();
 
-        $this->output->comment("ALTER TABLE `{$table}` ENABLE KEYS");
-        $this->output->comment("COMMIT");
+        $this->output->command("ALTER TABLE `{$table}` ENABLE KEYS");
+        $this->output->command("COMMIT");
+        $this->output->newLine(2);
     }
 
     private function toValues($table, $row)
@@ -559,22 +576,67 @@ class MysqlDatabaseSnapper
         return $values;
     }
 
+    /**
+     * @param $value mixed
+     * @param $type MysqlColumnType
+     */
     private function escape($value, $type)
     {
         if (is_null($value)) {
             return "NULL";
-        } elseif ($this->dumpSettings['hex-blob'] && $type['is_blob']) {
-            if ($type['type'] == 'bit' || !empty($colValue)) {
+        } elseif ($type->isBlob()) {
+            if ($type->is('bit') || !empty($value)) {
                 return "0x${value}";
             } else {
                 return "''";
             }
-        } elseif ($type['is_numeric']) {
+        } elseif ($type->isNumeric()) {
             return $value;
         }
 
         return $this->pdo->quote($value);
     }
 
+    /**
+     * @return MysqlColumnType[]
+     */
+    private function getColumnTypes($table)
+    {
+        $stmt = $this->pdo->query("SHOW COLUMNS FROM `{$table}`");
 
+        $types = [];
+
+        foreach ($stmt as $row) {
+            $types[$row->Field] = MysqlColumnType::fromRow($row);
+        }
+
+        return $types;
+    }
+
+    private function getColumns($table)
+    {
+        $columns = [];
+
+        $columnsTypes = $this->getColumnTypes($table);
+
+        foreach ($columnsTypes as $colName => $colType) {
+            if ($colType->is('bit') && $this->dumpSettings['hex-blob']) {
+                $columns[] = "LPAD(HEX(`${colName}`),2,'0') AS `${colName}`";
+            } else if ($colType->isBlob() && $this->dumpSettings==['hex-blob']) {
+                $columns[] = "HEX(`${colName}`) AS `${colName}`";
+            } else if ($colType->isVirtual()) {
+                $this->dumpSettings['complete-insert'] = true;
+                continue;
+            } else {
+                $columns[] = "`${colName}`";
+            }
+        }
+
+        return $columns;
+    }
+
+    private function removeDefiner($command)
+    {
+        return preg_replace("/DEFINER=`[^`]+`@`[^`]+`/", 'DEFINER=CURRENT_USER', $command);
+    }
 }
