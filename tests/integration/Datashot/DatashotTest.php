@@ -80,6 +80,15 @@ class DatashotTest extends TestCase
                     return "login IN ({$selected}) and ".
                            "login NOT IN ({$excluded})";
                 }
+            ],
+
+            'row_transformers' => [
+                'users' => function ($row) {
+
+                    // echo "transforming {$row->login}\n";
+
+                    return $row;
+                }
             ]
         ]);
 

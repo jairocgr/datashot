@@ -8,6 +8,7 @@ bootstrap/compiled.php
 app/storage/
 
 tests/assets/snapped.gz
+tests/assets/snapped.sql
 
 # Laravel 5 & Lumen specific
 public/storage

@@ -30,6 +30,14 @@ CREATE TABLE news (
   created_at timestamp not null
 );
 
+DELIMITER ;;
+CREATE TRIGGER users_AFTER_UPDATE AFTER UPDATE ON users FOR EACH ROW
+BEGIN
+  UPDATE users SET login=new.login WHERE id=new.id;
+END
+;;
+DELIMITER ;
+
 INSERT INTO tenants VALUES
   (1, 'tenant01', 'Test Tenant 01'),
   (2, 'tenant02', 'Test Tenant 02'),
@@ -65,3 +73,25 @@ INSERT INTO news VALUES
 
 create view datashot.user_log AS
   select msg, login from logs, users;
+
+DELIMITER ;;
+CREATE PROCEDURE user_count()
+BEGIN
+  SELECT count(*) FROM users WHERE active IS TRUE;
+END;
+;;
+DELIMITER ;
+
+DELIMITER ;;
+CREATE FUNCTION hello (s CHAR(20))
+  RETURNS CHAR(50) DETERMINISTIC
+  RETURN CONCAT('Hello, ',s,'!');
+;;
+DELIMITER ;
+
+DELIMITER ;;
+CREATE FUNCTION hi (s CHAR(20))
+RETURNS CHAR(50) DETERMINISTIC
+RETURN CONCAT('Hi, ',s,'!');
+;;
+DELIMITER ;

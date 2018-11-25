@@ -132,11 +132,13 @@ class MysqlDatabaseSnapper
             $this->dumpTables();
         }
 
-        $this->output->close();
+        if ($this->dumpAll()) {
+            $this->dumpTriggers();
+            $this->dumpProcedures();
+            $this->dumpFunctions();
+        }
 
-        // if ($this->dumpAll()) {
-        //    $this->dumpActions();
-        //}
+        $this->output->close();
 
         $end = microtime(true);
 
@@ -168,22 +170,6 @@ class MysqlDatabaseSnapper
         $this->eachView(function ($view) {
             $this->dumpViewDdl($view);
         });
-    }
-
-    private function dumpActions()
-    {
-        $this->notify(static::DUMPING_ACTIONS);
-        $this->appendMsg("Restaurando rotinas, triggers e functions...");
-        $this->appendOutput("
-            /usr/bin/mysqldump --defaults-file={$this->connectionFile} \
-                --no-create-info \
-                --no-data \
-                --routines \
-                --triggers \
-                --single-transaction \
-                --lock-tables=false \
-                {$this->conf->database}
-        ");
     }
 
     private function eachTable($closure)
@@ -562,7 +548,7 @@ class MysqlDatabaseSnapper
         if ($this->conf->hasRowTransformer($table)) {
             $transformer = $this->conf->getRowTransformer($table);
 
-            call_user_func($transformer, $row);
+            $row = call_user_func($transformer, $row);
         }
 
         $columnTypes = $this->getColumnTypes($table);
@@ -638,5 +624,138 @@ class MysqlDatabaseSnapper
     private function removeDefiner($command)
     {
         return preg_replace("/DEFINER=`[^`]+`@`[^`]+`/", 'DEFINER=CURRENT_USER', $command);
+    }
+
+    private function dumpTriggers()
+    {
+        $this->eachTriggers(function ($trigger) {
+            $this->dumpTrigger($trigger);
+        });
+    }
+
+    private function eachTriggers($closure)
+    {
+        $results = $this->pdo->query("
+            SHOW TRIGGERS FROM `{$this->conf->database}`
+        ");
+
+        foreach ($results as $res) {
+
+            $trigger = $res->Trigger;
+
+            call_user_func($closure, $trigger);
+        }
+    }
+
+    private function dumpTrigger($trigger)
+    {
+        $cmd = $this->getCreateTigger($trigger);
+
+        $this->output->comment("Trigger {$trigger}");
+        $this->output->message("Creating {$trigger} trigger...");
+        $this->output->writeln($cmd);
+        $this->output->newLine(2);
+    }
+
+    private function getCreateTigger($trigger)
+    {
+        $row = $this->first("SHOW CREATE TRIGGER `{$trigger}`");
+
+        $statement = $row['SQL Original Statement'];
+
+        $statement = $this->removeDefiner($statement);
+
+        return "DELIMITER ;;" . PHP_EOL . $statement . ";;" . PHP_EOL .
+               "DELIMITER ;";
+    }
+
+    private function dumpProcedures()
+    {
+        $this->eachProcedures(function ($procedure) {
+            $this->dumpProcedure($procedure);
+        });
+    }
+
+    private function eachProcedures($closure)
+    {
+        $results = $this->pdo->query("
+            SELECT SPECIFIC_NAME AS procedure_name 
+            FROM INFORMATION_SCHEMA.ROUTINES 
+            WHERE ROUTINE_TYPE='PROCEDURE' AND ROUTINE_SCHEMA='{$this->conf->database}'
+        ");
+
+        foreach ($results as $res) {
+
+            $procedure = $res->procedure_name;
+
+            call_user_func($closure, $procedure);
+        }
+    }
+
+    private function dumpProcedure($procedure)
+    {
+        $cmd = $this->getCreateProcedure($procedure);
+
+        $this->output->comment("Procedure '{$procedure}'");
+        $this->output->message("Creating {$procedure} procedure...");
+        $this->output->writeln($cmd);
+        $this->output->newLine(2);
+    }
+
+    private function getCreateProcedure($procedure)
+    {
+        $row = $this->first("SHOW CREATE PROCEDURE `{$procedure}`");
+
+        $statement = $row['Create Procedure'];
+
+        $statement = $this->removeDefiner($statement);
+
+        return "DELIMITER ;;" . PHP_EOL . $statement . ";;" . PHP_EOL .
+            "DELIMITER ;";
+    }
+
+    private function dumpFunctions()
+    {
+        $this->eachFunctions(function ($function) {
+            $this->dumpFunction($function);
+        });
+    }
+
+    private function eachFunctions($closure)
+    {
+        $results = $this->pdo->query("
+            SELECT SPECIFIC_NAME AS function_name 
+            FROM INFORMATION_SCHEMA.ROUTINES 
+            WHERE ROUTINE_TYPE='FUNCTION' AND ROUTINE_SCHEMA='{$this->conf->database}'
+        ");
+
+        foreach ($results as $res) {
+
+            $function = $res->function_name;
+
+            call_user_func($closure, $function);
+        }
+    }
+
+    private function dumpFunction($function)
+    {
+        $cmd = $this->getCreateFunction($function);
+
+        $this->output->comment("Function '{$function}'");
+        $this->output->message("Creating {$function} function...");
+        $this->output->writeln($cmd);
+        $this->output->newLine(2);
+    }
+
+    private function getCreateFunction($function)
+    {
+        $row = $this->first("SHOW CREATE FUNCTION `{$function}`");
+
+        $statement = $row['Create Function'];
+
+        $statement = $this->removeDefiner($statement);
+
+        return "DELIMITER ;;" . PHP_EOL . $statement . ";;" . PHP_EOL .
+            "DELIMITER ;";
     }
 }
