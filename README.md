@@ -12,9 +12,8 @@ snapshot.
 To install and run **datashot** you must have:
 
  * PHP >= 5.6 with PDO extension
+ * `zlib` PHP extension for gzip compression
  * [Composer](https://getcomposer.org/) dependency manager
- * `mysqldump` on path (from mysql >= 5.6)
- * `gzip` tool on path
 
 ## Installing
 
@@ -143,7 +142,7 @@ gzip < storage/snaps/my_crm_devsnap.gz | mysql -h localhost dbname
 
 ## Hat Tipping
 
-I tip my hat to [ifsnop/mysqldump-php](https://github.com/ifsnop/mysqldump-php) 
+I tip my hat to [ifsnop/mysqldump-php](https://github.com/ifsnop/mysqldump-php)
 for providing insights on how to dump a mysql database via PHP/PDO.
 
 ## License
