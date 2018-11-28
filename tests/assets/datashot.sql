@@ -1,6 +1,6 @@
 
 DROP DATABASE IF EXISTS datashot;
-CREATE DATABASE datashot;
+CREATE DATABASE datashot charset utf8 collate utf8_general_ci;
 
 USE datashot;
 
@@ -17,7 +17,10 @@ CREATE TABLE users (
   active boolean not null default true,
   phone varchar(32) not null,
   password varchar(40),
-  tenant_id integer REFERENCES tenants(id) ON UPDATE CASCADE
+  tenant_id integer not null,
+
+  CONSTRAINT fk_user_tenant FOREIGN KEY (tenant_id)
+    REFERENCES tenants(id) ON UPDATE CASCADE
 );
 
 ALTER TABLE users ADD
@@ -46,10 +49,10 @@ END
 DELIMITER ;
 
 INSERT INTO tenants (id, handle, name) VALUES
-  (1, 'tenant01', 'Test Tenant 01'),
-  (2, 'tenant02', 'Test Tenant 02'),
-  (3, 'tenant03', 'Test Tenant 03'),
-  (4, 'tenant04', 'Test Tenant 04');
+  (1, 'tenant01', 'Test Tenant 01 Çñ'),
+  (2, 'tenant02', 'Test Tenant 02 Çñ'),
+  (3, 'tenant03', 'Test Tenant 03 Çñ'),
+  (4, 'tenant04', 'Test Tenant 04 Çñ');
 
 INSERT INTO users VALUES
   (101, 'usr101', true, '+55 67 99168-2101', sha1('testpw'), 1),

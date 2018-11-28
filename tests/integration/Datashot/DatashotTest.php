@@ -115,6 +115,10 @@ class DatashotTest extends TestCase
             $dshot->append("
                 -- Second append
                 SELECT 'Test second event-based hook...';
+                CREATE TABLE test_table (
+                    id integer not null auto_increment primary key,
+                    name varchar(128)
+                );
             ");
         });
 
@@ -144,8 +148,6 @@ class DatashotTest extends TestCase
             "{$this->ASSETS_DIR}/snapped.plain.sql",
             "{$this->ASSETS_DIR}/snapped.expanded.sql"
         );
-
-        $this->assertTrue(TRUE);
     }
 
     private function exec($command)
