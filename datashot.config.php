@@ -30,6 +30,8 @@
 
             'database_name'   => 'datashot',
 
+            'output_dir' => realpath(__DIR__ . '/tests/assets'),
+
             // Custom made property
             'excluded_user' => 'usr103',
 
@@ -83,11 +85,11 @@
         'workbench1' => [
             'driver'    => 'mysql',
 
-            'host'      => 'localhost', // getenv('WORKBENCH_HOST'),
-            'port'      => 3306, // getenv('WORKBENCH_PORT'),
+            'host'      => getenv('WORKBENCH_HOST'),
+            'port'      => getenv('WORKBENCH_PORT'),
 
-            'username'  => 'admin', // getenv('WORKBENCH_ADMIN'),
-            'password'  => 'admin', // getenv('WORKBENCH_PASSWORD')
+            'username'  => getenv('WORKBENCH_USER'),
+            'password'  => getenv('WORKBENCH_PASSWORD')
         ],
 
 

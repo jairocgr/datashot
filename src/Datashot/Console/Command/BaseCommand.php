@@ -6,6 +6,7 @@ use Datashot\Core\DatabaseSnapper;
 use Datashot\Datashot;
 use Datashot\Util\ConsoleOutput;
 use Datashot\Util\EventBus;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -57,7 +58,7 @@ abstract class BaseCommand extends Command
     protected function configure()
     {
         $this->addOption(
-                'conf',
+                'config',
                 'c',
                 InputArgument::OPTIONAL,
                 'Configuration file',
@@ -98,7 +99,7 @@ abstract class BaseCommand extends Command
     /** @return array */
     private function loadConfig(InputInterface $input)
     {
-        $configFile = $input->getOption('conf');
+        $configFile = $input->getOption('config');
 
         if (!file_exists($configFile)) {
             throw new RuntimeException(
