@@ -3,6 +3,7 @@
     "description": "A tool for taking partial database dumps for testing and development",
     "type": "library",
     "license": "MIT",
+    "version": "0.1.0",
     "authors": [
         {
             "name": "Jairo Rodrigues Filho",

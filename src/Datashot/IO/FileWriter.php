@@ -13,4 +13,6 @@ interface FileWriter
     function flush();
 
     function close();
+
+    function open();
 }

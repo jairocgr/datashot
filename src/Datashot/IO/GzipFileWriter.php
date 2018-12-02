@@ -10,6 +10,8 @@ class GzipFileWriter implements FileWriter
 
     private $filepath;
 
+    private $firstOpening;
+
     public function __construct($filepath)
     {
         if (!function_exists("gzopen")) {
@@ -19,12 +21,13 @@ class GzipFileWriter implements FileWriter
         }
 
         $this->filepath = $filepath;
+        $this->firstOpening = TRUE;
     }
 
     public function write($string)
     {
         if ($this->handle == NULL) {
-            $this->fopen();
+            $this->open();
         }
 
         return $this->fwrite($string);
@@ -56,15 +59,26 @@ class GzipFileWriter implements FileWriter
         return $this->write(str_repeat(PHP_EOL, $count));
     }
 
-    private function fopen()
+    public function open()
     {
         $this->mkpath($this->filepath);
 
-        $this->handle = gzopen($this->filepath, "w");
+        if ($this->firstOpening) {
+            // If first opening truncate the file and place the pointer
+            // at the begining
+            $this->handle = gzopen($this->filepath, "w9");
+        } else {
+            // Place the pointer at the end for appending writings
+            $this->handle = gzopen($this->filepath, "a");
+        }
+
+        stream_set_write_buffer($this->handle, 4096);
 
         if ($this->handle  === FALSE) {
             throw new RuntimeException("Can not open \"{$this->filepath}\"");
         }
+
+        $this->firstOpening = FALSE;
     }
 
     private function fwrite($string)
@@ -85,7 +99,7 @@ class GzipFileWriter implements FileWriter
 
     private function fflush()
     {
-        // no flush
+        fflush($this->handle);
     }
 
     private function fclose()
@@ -93,6 +107,8 @@ class GzipFileWriter implements FileWriter
         if (gzclose($this->handle) === FALSE) {
             throw new RuntimeException("Can not close \"{$this->filepath}\"");
         }
+
+        $this->handle = NULL;
     }
 
     private function mkpath($filepath)

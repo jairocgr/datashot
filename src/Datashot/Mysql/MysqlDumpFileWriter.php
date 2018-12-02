@@ -50,4 +50,9 @@ class MysqlDumpFileWriter
     {
         $this->writer->close();
     }
+
+    public function open()
+    {
+        $this->writer->open();
+    }
 }

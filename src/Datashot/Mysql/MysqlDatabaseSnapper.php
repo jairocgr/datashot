@@ -2,31 +2,23 @@
 
 namespace Datashot\Mysql;
 
-use Datashot\Lang\Observable;
+use Datashot\Core\DatabaseSnapper;
+use Datashot\Core\SnapperConfiguration;
+use Datashot\Datashot;
+use Datashot\Lang\DataBag;
+use Datashot\Util\EventBus;
 use PDO;
 use RuntimeException;
 
-class MysqlDatabaseSnapper
+class MysqlDatabaseSnapper implements DatabaseSnapper
 {
-    use Observable;
-
     const DATABASE_TIMEOUT = 60 * 60 * 16;
 
-    const DUMPING_SCHEMA     = 'dumping_schema';
-    const DUMPING_TABLE      = 'dumping_table';
-    const TABLE_DUMPED       = 'table_dumped';
-    const SNAPED             = 'snaped';
-    const DUMPING_ACTIONS    = 'dumping_actions';
-    const CREATING_SNAP_FILE = 'creating_snap_file';
-    const SNAPPING           = 'snapping';
-    const APPENDING          = 'appending';
-    const APPENDED           = 'appended';
-
     private static $EVENTS = [
-        self::SNAPED,
+        DatabaseSnapper::SNAPED,
     ];
 
-    /** @var MysqlDumperConfig */
+    /** @var SnapperConfiguration */
     private $conf;
 
     /**
@@ -48,48 +40,12 @@ class MysqlDatabaseSnapper
     /** @var string */
     private $connectionFile;
 
-    public function __construct($config = [])
+    public function __construct(EventBus $bus, SnapperConfiguration $conf)
     {
-        $this->conf = new MysqlDumperConfig($config);
+        $this->bus = $bus;
+        $this->conf = $conf;
 
-        $this->processEventHooks($config);
-    }
-
-    public function config(array $config)
-    {
-        $this->conf->append($config);
-        $this->processEventHooks($config);
-    }
-
-    public function where(...$args)
-    {
-        if (count($args) == 1) {
-
-            if (is_array($args[0])) {
-                foreach ($args[0] as $table => $where) {
-                    $this->where($table, $where);
-                }
-                return;
-            }
-
-            $this->setFallbackWhere($args[0]);
-        } else {
-            $table = $args[0];
-            $where = $args[1];
-            $this->setWhereClause($table, $where);
-        }
-
-        return $this;
-    }
-
-    private function setFallbackWhere($string)
-    {
-        $this->conf->setFallbackWhere($this->wrap($string));
-    }
-
-    private function setWhereClause($table, $where)
-    {
-        $this->conf->setWhereClause($table, $this->wrap($where));
+        $this->processEventHooks($conf);
     }
 
     private function wrap($where)
@@ -121,6 +77,8 @@ class MysqlDatabaseSnapper
         $this->snapping();
 
         $this->connect();
+
+        $this->setupConnectionFile();
 
         $this->touchOutput();
 
@@ -155,11 +113,13 @@ class MysqlDatabaseSnapper
 
     private function connect()
     {
-        $dsn = "mysql:host={$this->conf->host};" .
-               "port={$this->conf->port};" .
-               "dbname={$this->conf->database}";
+        $this->publish(DatabaseSnapper::CONNECTING);
 
-        $this->pdo = new PDO($dsn, $this->conf->username, $this->conf->password, [
+        $dsn = "mysql:host={$this->conf->getHost()};" .
+               "port={$this->conf->getPort()};" .
+               "dbname={$this->conf->getDatabase()}";
+
+        $this->pdo = new PDO($dsn, $this->conf->getUser(), $this->conf->getPassword(), [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
             PDO::ATTR_TIMEOUT => static::DATABASE_TIMEOUT,
@@ -169,6 +129,8 @@ class MysqlDatabaseSnapper
 
     private function dumpTablesDdl()
     {
+        $this->publish(DatabaseSnapper::DUMPING_SCHEMA);
+
         $this->eachTable(function ($table) {
             $this->dumpTableDdl($table);
         });
@@ -176,6 +138,8 @@ class MysqlDatabaseSnapper
 
     private function dumpViews()
     {
+        $this->publish(DatabaseSnapper::DUMPING_VIEWS);
+
         $this->eachView(function ($view) {
             $this->dumpViewDdl($view);
         });
@@ -186,7 +150,7 @@ class MysqlDatabaseSnapper
         $results = $this->pdo->query("
             SELECT table_name
             FROM information_schema.tables
-            where table_schema='{$this->conf->database}' AND
+            where table_schema='{$this->conf->getDatabase()}' AND
                   table_type = 'BASE TABLE'
         ");
 
@@ -203,7 +167,7 @@ class MysqlDatabaseSnapper
         $results = $this->pdo->query("
             SELECT table_name
             FROM information_schema.tables
-            where table_schema='{$this->conf->database}' AND
+            where table_schema='{$this->conf->getDatabase()}' AND
                   table_type = 'VIEW'
         ");
 
@@ -247,6 +211,8 @@ class MysqlDatabaseSnapper
 
     private function dumpTables()
     {
+        $this->publish(DatabaseSnapper::DUMPING_TABLES);
+
         $this->eachTable(function ($table) {
             $this->dumpTableData($table);
         });
@@ -254,12 +220,12 @@ class MysqlDatabaseSnapper
 
     private function snapping()
     {
-        $this->notify(static::SNAPPING, $this->conf);
+        $this->publish(DatabaseSnapper::SNAPPING);
     }
 
     private function snapped($start, $end)
     {
-        $this->notify(static::SNAPED, $this, [
+        $this->publish(DatabaseSnapper::SNAPED, [
             'execution_time' => ($end - $start)
         ]);
     }
@@ -271,6 +237,8 @@ class MysqlDatabaseSnapper
 
     private function dumpTableDdl($table)
     {
+        $this->publish(DatabaseSnapper::DUMPING_TABLE_DDL, [ 'table' => $table ]);
+
         $ddl = $this->getCreateTableDdl($table);
 
         $this->output->comment("DDL for \"{$table}\" table ");
@@ -279,12 +247,14 @@ class MysqlDatabaseSnapper
         $this->output->newLine(2);
     }
 
-    private function dumpViewDdl($table)
+    private function dumpViewDdl($view)
     {
-        $ddl = $this->getCreateViewDdl($table);
+        $this->publish(DatabaseSnapper::DUMPING_VIEW, [ 'view' => $view ]);
 
-        $this->output->comment("DDL for \"{$table}\" view");
-        $this->output->message("Creating view {$table}...");
+        $ddl = $this->getCreateViewDdl($view);
+
+        $this->output->comment("DDL for \"{$view}\" view");
+        $this->output->message("Creating view {$view}...");
         $this->output->command($ddl);
         $this->output->newLine(2);
     }
@@ -324,56 +294,22 @@ class MysqlDatabaseSnapper
 
     private function touchOutput()
     {
-        $this->output = $this->conf->getOutputFile();
+        $this->publish(DatabaseSnapper::CREATING_SNAP_FILE);
+
+        $writer = $this->conf->getOutputFile();
+
+        $this->output = new MysqlDumpFileWriter($writer);
+
+        $this->snapfile = $this->conf->getOutputFilePath();
     }
 
     private function dumpTableData($table)
     {
-        $where = $this->buildWhereClause($table);
-        $columns = implode(", ", $this->getColumns($table));
-
-        $stmt = $this->pdo->query("
-          SELECT {$columns} FROM `{$table}` WHERE {$where}
-        ");
-
-        $this->output->comment("Dumping data for table \"{$table}\"");
-        $this->output->comment(" WHERE {$this->cutoff($where, 68)}");
-        $this->output->message("Restoring {$table}...");
-
-        // Optmization for faster bulky INSERT
-        $this->output->command("LOCK TABLES `{$table}` WRITE");
-        $this->output->command("ALTER TABLE `{$table}` DISABLE KEYS");
-        $this->output->command("SET autocommit = 0");
-
-        $first = TRUE;
-
-        foreach ($stmt as $row) {
-
-            if ($first) {
-
-                $this->output->writeln("INSERT INTO `{$table}` ({$columns}) VALUES ");
-
-                $first = FALSE;
-
-            } else {
-                $this->output->write(",\n");
-            }
-
-            $values = $this->toValues($table, $row);
-
-            $this->output->write('(' . implode(",", $values) . ')');
+        if ($this->conf->hasRowTransformer($table)) {
+            $this->dumpTableDataViaPhp($table);
+        } else {
+            $this->dumpTableDataViaMysqlClient($table);
         }
-
-        if ($stmt->rowCount() > 0) {
-            $this->output->writeln(";");
-        }
-
-        $stmt->closeCursor();
-
-        $this->output->command("ALTER TABLE `{$table}` ENABLE KEYS");
-        $this->output->command("UNLOCK TABLES");
-        $this->output->command("COMMIT");
-        $this->output->newLine(2);
     }
 
     private function toValues($table, $row)
@@ -461,6 +397,8 @@ class MysqlDatabaseSnapper
 
     private function dumpTriggers()
     {
+        $this->publish(DatabaseSnapper::DUMPING_TRIGGERS);
+
         $this->eachTriggers(function ($trigger) {
             $this->dumpTrigger($trigger);
         });
@@ -469,7 +407,7 @@ class MysqlDatabaseSnapper
     private function eachTriggers($closure)
     {
         $results = $this->pdo->query("
-            SHOW TRIGGERS FROM `{$this->conf->database}`
+            SHOW TRIGGERS FROM `{$this->conf->getDatabase()}`
         ");
 
         foreach ($results as $res) {
@@ -505,6 +443,8 @@ class MysqlDatabaseSnapper
 
     private function dumpProcedures()
     {
+        $this->publish(DatabaseSnapper::DUMPING_PROCEDURES);
+
         $this->eachProcedures(function ($procedure) {
             $this->dumpProcedure($procedure);
         });
@@ -515,7 +455,7 @@ class MysqlDatabaseSnapper
         $results = $this->pdo->query("
             SELECT SPECIFIC_NAME AS procedure_name
             FROM INFORMATION_SCHEMA.ROUTINES
-            WHERE ROUTINE_TYPE='PROCEDURE' AND ROUTINE_SCHEMA='{$this->conf->database}'
+            WHERE ROUTINE_TYPE='PROCEDURE' AND ROUTINE_SCHEMA='{$this->conf->getDatabase()}'
         ");
 
         foreach ($results as $res) {
@@ -551,6 +491,8 @@ class MysqlDatabaseSnapper
 
     private function dumpFunctions()
     {
+        $this->publish(DatabaseSnapper::DUMPING_FUNCTIONS);
+
         $this->eachFunctions(function ($function) {
             $this->dumpFunction($function);
         });
@@ -561,7 +503,7 @@ class MysqlDatabaseSnapper
         $results = $this->pdo->query("
             SELECT SPECIFIC_NAME AS function_name
             FROM INFORMATION_SCHEMA.ROUTINES
-            WHERE ROUTINE_TYPE='FUNCTION' AND ROUTINE_SCHEMA='{$this->conf->database}'
+            WHERE ROUTINE_TYPE='FUNCTION' AND ROUTINE_SCHEMA='{$this->conf->getDatabase()}'
         ");
 
         foreach ($results as $res) {
@@ -598,10 +540,10 @@ class MysqlDatabaseSnapper
     private function flushFileHeader()
     {
         $this->output->comment("");
-        $this->output->comment("Database dump taked via datashot v1.0.0");
+        $this->output->comment("Database dump taked via datashot " . Datashot::getVersion());
         $this->output->comment("  https://github.com/jairocgr/datashot");
         $this->output->comment("");
-        $this->output->comment("{$this->conf->database} at {$this->conf->host} server ");
+        $this->output->comment("{$this->conf->getDatabase()} at {$this->conf->getDatabaseServer()} server ");
         $this->output->comment("timestamp " . date("Y-m-d h:i:s"));
         $this->output->comment("");
 
@@ -621,12 +563,12 @@ class MysqlDatabaseSnapper
         return $string;
     }
 
-    private function processEventHooks($config)
+    private function processEventHooks(SnapperConfiguration $config)
     {
         foreach (static::$EVENTS as $event) {
             // Check if the config array has a event-based hook
-            if (isset($config[$event]) && is_callable($config[$event])) {
-                $this->on($event, $config[$event]);
+            if ($config->hasClosure($event)) {
+                $this->on($event, $config->get($event));
             }
         }
     }
@@ -667,5 +609,209 @@ class MysqlDatabaseSnapper
         $this->dumpTriggers();
         $this->dumpProcedures();
         $this->dumpFunctions();
+    }
+
+    private function publish($event, array $data = [])
+    {
+        $this->bus->publish($event, $this, new DataBag($data));
+    }
+
+    private function dumpTableDataViaPhp($table)
+    {
+        $where = $this->buildWhereClause($table);
+        $columns = implode(", ", $this->getColumns($table));
+
+        $stmt = $this->pdo->query("
+          SELECT {$columns} FROM `{$table}` WHERE {$where}
+        ");
+
+
+        $this->publish(DatabaseSnapper::DUMPING_TABLE_DATA, [
+            'table' => $table,
+            'where' => $where
+        ]);
+
+        $this->output->comment("Dumping data for table \"{$table}\"");
+        $this->output->comment(" WHERE {$this->cutoff($where, 68)}");
+        $this->output->message("Restoring {$table}...");
+
+        // Optmization for faster bulky INSERT
+        $this->output->command("LOCK TABLES `{$table}` WRITE");
+        $this->output->command("ALTER TABLE `{$table}` DISABLE KEYS");
+        $this->output->command("SET autocommit = 0");
+
+        $first = TRUE;
+
+        $start = microtime(true);
+
+        foreach ($stmt as $row) {
+
+            if ($first) {
+
+                $this->output->writeln("INSERT INTO `{$table}` ({$columns}) VALUES ");
+
+                $first = FALSE;
+
+            } else {
+                $this->output->write(",\n");
+            }
+
+            $values = $this->toValues($table, $row);
+
+            $this->output->write('(' . implode(",", $values) . ')');
+        }
+
+        if ($stmt->rowCount() > 0) {
+            $this->output->writeln(";");
+        }
+
+        $stmt->closeCursor();
+
+        $this->output->command("ALTER TABLE `{$table}` ENABLE KEYS");
+        $this->output->command("UNLOCK TABLES");
+        $this->output->command("COMMIT");
+        $this->output->newLine(2);
+
+        $end = microtime(true);
+
+        $this->publish(DatabaseSnapper::TABLE_DUMPED, [
+            'time' => ($end - $start),
+            'rows' => $stmt->rowCount()
+        ]);
+    }
+
+    private function dumpTableDataViaMysqlClient($table)
+    {
+        $where = $this->buildWhereClause($table);
+
+        if (!empty($where)) {
+            $where = $this->strip($where);
+        }
+
+        $this->publish(DatabaseSnapper::DUMPING_TABLE_DATA, [
+            'table' => $table,
+            'where' => $where
+        ]);
+
+        $this->output->comment("Dumping data for table \"{$table}\"");
+        $this->output->comment(" WHERE {$this->cutoff($where, 68)}");
+        $this->output->message("Restoring {$table}...");
+
+        if (empty($whereClause)) {
+            $whereClause = "";
+        } else {
+            $whereClause = "--where=\"{$whereClause}\"";
+        }
+
+        $start = microtime(true);
+
+        $this->output->close();
+
+        $this->appendOutput("
+            /usr/bin/mysqldump --defaults-file={$this->connectionFile} \
+                --no-create-info \
+                --no-tablespaces \
+                --skip-triggers \
+                --disable-keys \
+                --no-autocommit \
+                --single-transaction \
+                --lock-tables=false \
+                --skip-comments \
+                --quick \
+                {$whereClause} \
+                {$this->conf->getDatabase()} {$table}
+        ");
+
+        $end = microtime(true);
+
+        $this->publish(DatabaseSnapper::TABLE_DUMPED, [
+            'time' => ($end - $start)
+        ]);
+    }
+
+    private function strip($whereClause)
+    {
+        $whereClause = str_replace("\n", "", $whereClause);
+        return preg_replace("/[ ]{2,}/", ' ', $whereClause);
+    }
+
+    private function appendOutput($command)
+    {
+        if (is_array($command)) {
+            $command = implode(" ", $command);
+        }
+
+        $command = trim($command);
+
+        $this->exec("
+            {$command} \
+            | sed -E 's/DEFINER=`[^`]+`@`[^`]+`/DEFINER=CURRENT_USER/g' \
+            | gzip >> {$this->snapfile}
+        ");
+    }
+
+    private function exec($command)
+    {
+        $return_var = 1;
+        $stdout = [];
+        exec(" ( {$command} ) 2>&1 ", $stdout, $return_var);
+
+        if ($return_var !== 0 || count($stdout) > 0) {
+            throw new RuntimeException(
+                "Troubles executing the command! \n  " .
+                implode("\n  ", $stdout)
+            );
+        }
+    }
+
+    private function setupConnectionFile()
+    {
+        register_shutdown_function(function () {
+            // connection file clean-up
+            @unlink($this->connectionFile);
+        });
+
+        $this->connectionFile = $this->genTempFilePath();
+
+        if (($temp = fopen($this->connectionFile, 'w')) === FALSE) {
+            throw new RuntimeException(
+                "Não foi possível criar o arquivo de conexão " .
+                "\"{$this->connectionFile}\""
+            );
+        }
+
+        $res = fwrite($temp,
+            "[mysqldump]\n" .
+            "host={$this->conf->getHost()}\n" .
+            "port={$this->conf->getPort()}\n" .
+            "user={$this->conf->getUser()}\n" .
+            "password={$this->conf->getPassword()}\n"
+        );
+
+        if ($res === FALSE) {
+            throw new RuntimeException(
+                "Não foi possível escrever o arquivo de conexão " .
+                "\"{$this->connectionFile}\""
+            );
+        }
+
+        if (fflush($temp) === FALSE) {
+            throw new RuntimeException(
+                "Não foi possível escrever o arquivo de conexão " .
+                "\"{$this->connectionFile}\""
+            );
+        }
+
+        if (fclose($temp) === FALSE) {
+            throw new RuntimeException(
+                "Não foi possível fechar o arquivo de conexão " .
+                "\"{$this->connectionFile}\""
+            );
+        }
+    }
+
+    private function genTempFilePath()
+    {
+        return tempnam(sys_get_temp_dir(), '.my.cnf.');
     }
 }

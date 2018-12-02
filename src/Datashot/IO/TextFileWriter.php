@@ -56,6 +56,8 @@ class TextFileWriter implements FileWriter
 
         $this->handle  = fopen($this->filepath, "w");
 
+        stream_set_write_buffer($this->handle, 4096);
+
         if ($this->handle  === FALSE) {
             throw new RuntimeException("Could not open \"{$this->filepath}\"");
         }
