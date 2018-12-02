@@ -16,6 +16,16 @@ class ConsoleOutput
         $this->io = new SymfonyStyle($input, $output);
     }
 
+    public function write($message = "")
+    {
+        $this->io->write($this->filter($message));
+    }
+
+    public function writeln($message = "")
+    {
+        $this->io->writeln($this->filter($message));
+    }
+
     public function puts($message = "")
     {
         $this->io->text($this->filter($message));

@@ -2,6 +2,7 @@
 
 namespace Datashot\Mysql;
 
+use Datashot\Core\DatabaseServer;
 use Datashot\Core\DatabaseSnapper;
 use Datashot\Core\SnapperConfiguration;
 use Datashot\Datashot;
@@ -46,6 +47,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->conf = $conf;
 
         $this->processEventHooks($conf);
+
+        $this->checkPreconditions();
     }
 
     private function wrap($where)
@@ -84,8 +87,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->flushFileHeader();
 
-        // $this->setupConnectionFile();
-
         $start = microtime(true);
 
         if ($this->dumpAll()) {
@@ -113,11 +114,9 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function connect()
     {
-        $this->publish(DatabaseSnapper::CONNECTING);
-
         $dsn = "mysql:host={$this->conf->getHost()};" .
                "port={$this->conf->getPort()};" .
-               "dbname={$this->conf->getDatabase()}";
+               "dbname={$this->conf->getDatabaseName()}";
 
         $this->pdo = new PDO($dsn, $this->conf->getUser(), $this->conf->getPassword(), [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -129,7 +128,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function dumpTablesDdl()
     {
-        $this->publish(DatabaseSnapper::DUMPING_SCHEMA);
+        $this->publish(DatabaseSnapper::DUMPING_DDL);
 
         $this->eachTable(function ($table) {
             $this->dumpTableDdl($table);
@@ -150,7 +149,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $results = $this->pdo->query("
             SELECT table_name
             FROM information_schema.tables
-            where table_schema='{$this->conf->getDatabase()}' AND
+            where table_schema='{$this->conf->getDatabaseName()}' AND
                   table_type = 'BASE TABLE'
         ");
 
@@ -167,7 +166,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $results = $this->pdo->query("
             SELECT table_name
             FROM information_schema.tables
-            where table_schema='{$this->conf->getDatabase()}' AND
+            where table_schema='{$this->conf->getDatabaseName()}' AND
                   table_type = 'VIEW'
         ");
 
@@ -211,7 +210,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function dumpTables()
     {
-        $this->publish(DatabaseSnapper::DUMPING_TABLES);
+        $this->publish(DatabaseSnapper::DUMPING_DATA);
 
         $this->eachTable(function ($table) {
             $this->dumpTableData($table);
@@ -226,7 +225,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function snapped($start, $end)
     {
         $this->publish(DatabaseSnapper::SNAPED, [
-            'execution_time' => ($end - $start)
+            'time' => ($end - $start)
         ]);
     }
 
@@ -296,11 +295,11 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     {
         $this->publish(DatabaseSnapper::CREATING_SNAP_FILE);
 
-        $writer = $this->conf->getOutputFile();
-
-        $this->output = new MysqlDumpFileWriter($writer);
-
         $this->snapfile = $this->conf->getOutputFilePath();
+
+        $this->output = new MysqlDumpFileWriter($this->snapfile);
+
+        $this->output->open();
     }
 
     private function dumpTableData($table)
@@ -407,7 +406,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function eachTriggers($closure)
     {
         $results = $this->pdo->query("
-            SHOW TRIGGERS FROM `{$this->conf->getDatabase()}`
+            SHOW TRIGGERS FROM `{$this->conf->getDatabaseName()}`
         ");
 
         foreach ($results as $res) {
@@ -420,6 +419,10 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function dumpTrigger($trigger)
     {
+        $this->publish(DatabaseSnapper::DUMPING_TRIGGER, [
+            'trigger' => $trigger
+        ]);
+
         $cmd = $this->getCreateTigger($trigger);
 
         $this->output->comment("Trigger {$trigger}");
@@ -455,7 +458,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $results = $this->pdo->query("
             SELECT SPECIFIC_NAME AS procedure_name
             FROM INFORMATION_SCHEMA.ROUTINES
-            WHERE ROUTINE_TYPE='PROCEDURE' AND ROUTINE_SCHEMA='{$this->conf->getDatabase()}'
+            WHERE ROUTINE_TYPE='PROCEDURE' AND ROUTINE_SCHEMA='{$this->conf->getDatabaseName()}'
         ");
 
         foreach ($results as $res) {
@@ -468,6 +471,10 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function dumpProcedure($procedure)
     {
+        $this->publish(DatabaseSnapper::DUMPING_PROCEDURE, [
+            'procedure' => $procedure
+        ]);
+
         $cmd = $this->getCreateProcedure($procedure);
 
         $this->output->comment("Procedure '{$procedure}'");
@@ -503,7 +510,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $results = $this->pdo->query("
             SELECT SPECIFIC_NAME AS function_name
             FROM INFORMATION_SCHEMA.ROUTINES
-            WHERE ROUTINE_TYPE='FUNCTION' AND ROUTINE_SCHEMA='{$this->conf->getDatabase()}'
+            WHERE ROUTINE_TYPE='FUNCTION' AND ROUTINE_SCHEMA='{$this->conf->getDatabaseName()}'
         ");
 
         foreach ($results as $res) {
@@ -516,6 +523,10 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function dumpFunction($function)
     {
+        $this->publish(DatabaseSnapper::DUMPING_FUNCTION, [
+            'function' => $function
+        ]);
+
         $cmd = $this->getCreateFunction($function);
 
         $this->output->comment("Function '{$function}'");
@@ -540,10 +551,10 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function flushFileHeader()
     {
         $this->output->comment("");
-        $this->output->comment("Database dump taked via datashot " . Datashot::getVersion());
-        $this->output->comment("  https://github.com/jairocgr/datashot");
+        $this->output->comment("Database dump taked via ". Datashot::getPackageName() ." v" . Datashot::getVersion());
+        $this->output->comment("  " . Datashot::getPackageUrl());
         $this->output->comment("");
-        $this->output->comment("{$this->conf->getDatabase()} at {$this->conf->getDatabaseServer()} server ");
+        $this->output->comment("{$this->conf->getDatabaseName()} from {$this->conf->getDatabaseServer()} server ");
         $this->output->comment("timestamp " . date("Y-m-d h:i:s"));
         $this->output->comment("");
 
@@ -705,6 +716,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $start = microtime(true);
 
+        // Close and flush the current writings for mysql client
+        // shell appending
         $this->output->close();
 
         $this->appendOutput("
@@ -719,7 +732,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
                 --skip-comments \
                 --quick \
                 {$whereClause} \
-                {$this->conf->getDatabase()} {$table}
+                {$this->conf->getDatabaseName()} {$table}
         ");
 
         $end = microtime(true);
@@ -813,5 +826,70 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function genTempFilePath()
     {
         return tempnam(sys_get_temp_dir(), '.my.cnf.');
+    }
+
+    /**
+     * @return string
+     */
+    public function getDatabaseName()
+    {
+        return $this->conf->getDatabaseName();
+    }
+
+    /**
+     * @return DatabaseServer
+     */
+    public function getDatabaseServer()
+    {
+        return $this->conf->getDatabaseServer();
+    }
+
+    private function checkPreconditions()
+    {
+        if (!$this->commandExists('mysqldump')) {
+            throw new RuntimeException(
+                "Command \"mysqldump\" not found"
+            );
+        }
+
+        if (!$this->commandExists('gzip')) {
+            throw new RuntimeException(
+                "Command \"gzip\" not found"
+            );
+        }
+    }
+
+    private function commandExists($command)
+    {
+        $return_var = 1;
+        $stdout = [];
+
+        exec(" ( command -v {$command} > /dev/null 2>&1 ) 2>&1 ", $stdout, $return_var);
+
+        return $return_var === 0;
+    }
+
+    /**
+     * @return int
+     */
+    function getDatabasePort()
+    {
+        return $this->conf->getPort();
+    }
+
+    /**
+     * @return string
+     */
+    function getDatabaseUser()
+    {
+        return $this->conf->getUser();
+    }
+
+    /**
+     * @return string
+     */
+    function getDatabaseHost()
+    {
+        return $this->conf->getHost();
     }
 }

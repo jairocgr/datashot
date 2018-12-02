@@ -17,6 +17,20 @@ class Datashot
         return $composer->version;
     }
 
+    public static function getPackageName()
+    {
+        $composer = json_decode(file_get_contents(__DIR__ . '/../../composer.json'));
+
+        return $composer->name;
+    }
+
+    public static function getPackageUrl()
+    {
+        $composer = json_decode(file_get_contents(__DIR__ . '/../../composer.json'));
+
+        return $composer->homepage;
+    }
+
     /** @var Configuration */
     private $config;
 

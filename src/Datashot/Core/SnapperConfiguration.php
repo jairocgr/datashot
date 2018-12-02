@@ -38,42 +38,12 @@ class SnapperConfiguration
     }
 
     /**
-     * @return FileWriter
-     */
-    public function getOutputFile()
-    {
-        if ($this->outputFile == NULL) {
-
-            $filepath = $this->getOutputFilePath();
-
-            if ($this->compressOutput()) {
-                $writer = new GzipFileWriter($filepath);
-            } else {
-                $writer = new TextFileWriter($filepath);
-            }
-
-            return $writer;
-        }
-
-        return $this->outputFile;
-    }
-
-    /**
      * @return string
      */
     public function getOutputFilePath()
     {
         return $this->data->get('output_dir', getcwd()) . DIRECTORY_SEPARATOR .
-               $this->data->get('output_file', $this->name) . '.' .
-               $this->getOutputExtension();
-    }
-
-    /**
-     * @return bool
-     */
-    public function compressOutput()
-    {
-        return $this->data->get('compress', true);
+               $this->data->get('output_file', $this->name) . '.gz';
     }
 
     /**
@@ -81,7 +51,7 @@ class SnapperConfiguration
      */
     public function dumpAll()
     {
-        return ! $this->data->get('data_only', false);
+        return ! $this->data->get('data_only', FALSE);
     }
 
     /**
@@ -89,12 +59,7 @@ class SnapperConfiguration
      */
     public function dumpData()
     {
-        return ! $this->data->get('no_data', false);
-    }
-
-    private function getOutputExtension()
-    {
-        return ($this->compressOutput() ? 'gz' : 'sql');
+        return ! $this->data->get('no_data', FALSE);
     }
 
     public function hasRowTransformer($table)
@@ -137,7 +102,7 @@ class SnapperConfiguration
     /**
      * @return string
      */
-    public function getDatabase()
+    public function getDatabaseName()
     {
         return $this->data->database_name;
     }
