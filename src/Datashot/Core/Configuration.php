@@ -59,6 +59,16 @@ class Configuration
         }
 
         foreach ($snappers as $snapperName => $data) {
+
+            if ($data->exists('__extends')) {
+                $base = $this->data->get("snappers.{$data->__extends}");
+
+                $data = new DataBag(array_replace_recursive(
+                    $base->toArray(),
+                    $data->toArray()
+                ));
+            }
+
             $this->snappers[$snapperName] = $this->parseSnapper($snapperName, $data);
         }
     }
@@ -84,18 +94,7 @@ class Configuration
             $data->set('database_server', $this->getDatabase($serverName));
         }
 
-        return new SnapperConfiguration($snapperName, array_replace_recursive(
-            $this->getDefaultSnapper()->toArray(),
-            $data->toArray()
-        ));
-    }
-
-    /**
-     * @return DataBag
-     */
-    private function getDefaultSnapper()
-    {
-        return $this->data->get('snappers.default', new DataBag());
+        return new SnapperConfiguration($snapperName, $data);
     }
 
     public function getSnapper($snapper)

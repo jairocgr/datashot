@@ -13,6 +13,8 @@ class SnapCommand extends BaseCommand
 
     protected function exec()
     {
-        $this->datashot->snap($this->snapper);
+        foreach ($this->snappers as $snapper) {
+            $this->datashot->snap($snapper);
+        }
     }
 }

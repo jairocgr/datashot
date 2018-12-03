@@ -45,7 +45,7 @@ class SnapCommandTest extends TestCase
             'command'  => $command->getName(),
 
             // pass arguments to the helper
-            'snapper' => 'crm',
+            'snappers' => [ 'crm', 'crm_sql' ],
 
             '--config' => "{$this->ROOT_DIR}/datashot.config.php",
 
@@ -66,7 +66,10 @@ class SnapCommandTest extends TestCase
 
     private function assessRestoredSnap()
     {
-        $this->assertTrue(true);
+        $this->assertFileEquals(
+            "{$this->ASSETS_DIR}/snapped.expanded.sql",
+            "{$this->ASSETS_DIR}/snapped.sql"
+        );
     }
 
     private function exec($command)

@@ -6,10 +6,13 @@ use Datashot\Core\DatabaseServer;
 use Datashot\Core\DatabaseSnapper;
 use Datashot\Core\SnapperConfiguration;
 use Datashot\Datashot;
+use Datashot\IO\GzipFileWriter;
+use Datashot\IO\TextFileWriter;
 use Datashot\Lang\DataBag;
 use Datashot\Util\EventBus;
 use PDO;
 use RuntimeException;
+use SebastianBergmann\CodeCoverage\Report\Text;
 
 class MysqlDatabaseSnapper implements DatabaseSnapper
 {
@@ -297,7 +300,11 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->snapfile = $this->conf->getOutputFilePath();
 
-        $this->output = new MysqlDumpFileWriter($this->snapfile);
+        $writer = $this->conf->compressOutput() ?
+            new GzipFileWriter($this->snapfile) :
+            new TextFileWriter($this->snapfile);
+
+        $this->output = new MysqlDumpFileWriter($writer);
 
         $this->output->open();
     }
@@ -636,6 +643,9 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
           SELECT {$columns} FROM `{$table}` WHERE {$where}
         ");
 
+        if (!empty($where)) {
+            $where = $this->strip($where);
+        }
 
         $this->publish(DatabaseSnapper::DUMPING_TABLE_DATA, [
             'table' => $table,
@@ -708,10 +718,10 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->output->comment(" WHERE {$this->cutoff($where, 68)}");
         $this->output->message("Restoring {$table}...");
 
-        if (empty($whereClause)) {
-            $whereClause = "";
+        if (empty($where)) {
+            $whereArg = "";
         } else {
-            $whereClause = "--where=\"{$whereClause}\"";
+            $whereArg = "--where=\"{$where}\"";
         }
 
         $start = microtime(true);
@@ -731,7 +741,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
                 --lock-tables=false \
                 --skip-comments \
                 --quick \
-                {$whereClause} \
+                {$whereArg} \
                 {$this->conf->getDatabaseName()} {$table}
         ");
 
@@ -756,10 +766,12 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $command = trim($command);
 
+        $transform = $this->conf->compressOutput() ? 'gzip' : 'cat';
+
         $this->exec("
             {$command} \
             | sed -E 's/DEFINER=`[^`]+`@`[^`]+`/DEFINER=CURRENT_USER/g' \
-            | gzip >> {$this->snapfile}
+            | {$transform} >> {$this->snapfile}
         ");
     }
 

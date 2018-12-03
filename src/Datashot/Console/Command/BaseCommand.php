@@ -11,7 +11,6 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 abstract class BaseCommand extends Command
 {
@@ -21,9 +20,9 @@ abstract class BaseCommand extends Command
     protected $config;
 
     /**
-     * @var string
+     * @var string[]
      */
-    protected $snapper;
+    protected $snappers;
 
     /**
      * @var InputInterface
@@ -66,10 +65,10 @@ abstract class BaseCommand extends Command
              )
 
              ->addArgument(
-                'snapper',
-                InputArgument::OPTIONAL,
-                'The choose snapper configuration',
-                'default'
+                'snappers',
+                InputArgument::OPTIONAL | InputArgument::IS_ARRAY,
+                'The choosed snappers to act upon',
+                [ 'default' ]
              );
 
         $this->config();
@@ -78,7 +77,7 @@ abstract class BaseCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $this->config = $this->loadConfig($input);
-        $this->snapper = $input->getArgument("snapper");
+        $this->snappers = $input->getArgument("snappers");
 
         $this->bus = new EventBus();
 

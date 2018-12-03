@@ -3,7 +3,6 @@
 namespace Datashot\Mysql;
 
 use Datashot\IO\FileWriter;
-use Datashot\IO\GzipFileWriter;
 
 class MysqlDumpFileWriter
 {
@@ -12,9 +11,9 @@ class MysqlDumpFileWriter
      */
     private $writer;
 
-    public function __construct($filepath)
+    public function __construct(FileWriter $writer)
     {
-        $this->writer = new GzipFileWriter($filepath);
+        $this->writer = $writer;
     }
 
     public function comment($string)

@@ -2,10 +2,6 @@
 
 namespace Datashot\Core;
 
-use Datashot\IO\FileWriter;
-use Datashot\IO\GzipFileWriter;
-use Datashot\IO\TextFileWriter;
-
 use Datashot\Lang\DataBag;
 
 class SnapperConfiguration
@@ -18,15 +14,10 @@ class SnapperConfiguration
     /** @var DataBag */
     private $data;
 
-    /**
-     * @var FileWriter
-     */
-    private $outputFile;
-
-    public function __construct($name, array $data)
+    public function __construct($name, DataBag $data)
     {
         $this->name = $name;
-        $this->data = new DataBag($data);
+        $this->data = $data;
     }
 
     /**
@@ -43,7 +34,16 @@ class SnapperConfiguration
     public function getOutputFilePath()
     {
         return $this->data->get('output_dir', getcwd()) . DIRECTORY_SEPARATOR .
-               $this->data->get('output_file', $this->name) . '.gz';
+               $this->data->get('output_file', $this->name) .
+              ($this->compressOutput() ? '.gz' : '.sql');
+    }
+
+    /**
+     * @return bool
+     */
+    public function compressOutput()
+    {
+        return $this->data->get('compress', TRUE);
     }
 
     /**

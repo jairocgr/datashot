@@ -2,29 +2,38 @@
 
     'snappers' => [
 
-        'default' => [
+        'docker_app' => [
+
             'triggers'  => TRUE,
             'routines'  => TRUE,
 
             'output_dir' => __DIR__,
 
-            'output_file' => 'snapped',
+            'compress' => FALSE,
 
-            'compress' => TRUE,
+            'database_server' => 'docker_mysql56',
 
-            // generic where bring only 2 rows per table
-            'where' => 'true order by 1 limit 2',
+            'database_name' => getenv('DOCKER_MYSQL56_DATABASE'),
+
+            // 'where' => 'true limit 1000',
         ],
 
-        'sun' => [
-            'output_file' => 'sun',
-            'database_server' => 'sun',
-            'database_name' => 'sun_pdr_ro',
+        'crm_sql' => [
 
-            'where' => true,
+            'extends' => 'crm',
+
+            'compress' => FALSE,
         ],
 
         'crm' => [
+
+            'triggers'  => TRUE,
+            'routines'  => TRUE,
+
+            'output_file' => 'snapped',
+
+            // generic where bring only 2 rows per table
+            'where' => 'true order by 1 limit 2',
 
             'database_server' => 'workbench1',
 
@@ -92,15 +101,14 @@
             'password'  => getenv('WORKBENCH_PASSWORD')
         ],
 
-
-        'sun' => [
+        'docker_mysql56' => [
             'driver'    => 'mysql',
 
-            'host'      => '127.0.0.1', // getenv('WORKBENCH_HOST'),
-            'port'      => 14001, // getenv('WORKBENCH_PORT'),
+            'host'      => getenv('DOCKER_MYSQL56_HOST'),
+            'port'      => getenv('DOCKER_MYSQL56_PORT'),
 
-            'username'  => 'root', // getenv('WORKBENCH_ADMIN'),
-            'password'  => 'root', // getenv('WORKBENCH_PASSWORD')
+            'username'  => getenv('DOCKER_MYSQL56_USER'),
+            'password'  => getenv('DOCKER_MYSQL56_PASSWORD')
         ]
     ],
 ];

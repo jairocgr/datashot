@@ -10,15 +10,18 @@ class TextFileWriter implements FileWriter
 
     private $filepath;
 
+    private $firstOpening;
+
     public function __construct($filepath)
     {
         $this->filepath = $filepath;
+        $this->firstOpening = TRUE;
     }
 
     public function write($string)
     {
         if ($this->handle == NULL) {
-            $this->fopen();
+            $this->open();
         }
 
         return $this->fwrite($string);
@@ -50,23 +53,32 @@ class TextFileWriter implements FileWriter
         return $this->write(str_repeat(PHP_EOL, $count));
     }
 
-    private function fopen()
+    public function open()
     {
         $this->mkpath($this->filepath);
 
-        $this->handle  = fopen($this->filepath, "w");
+        if ($this->firstOpening) {
+            // If first opening truncate the file and place the pointer
+            // at the begining
+            $this->handle = fopen($this->filepath, "w9");
+        } else {
+            // Place the pointer at the end for appending writings
+            $this->handle = fopen($this->filepath, "a");
+        }
 
-        stream_set_write_buffer($this->handle, 4096);
+        stream_set_write_buffer($this->handle, 4096); // 4KB buffer size
 
         if ($this->handle  === FALSE) {
-            throw new RuntimeException("Could not open \"{$this->filepath}\"");
+            throw new RuntimeException("Can not open \"{$this->filepath}\"");
         }
+
+        $this->firstOpening = FALSE;
     }
 
     private function fwrite($string)
     {
         if (($bytesWritten = fwrite($this->handle, $string)) === FALSE) {
-            throw new RuntimeException("Could not write to \"{$this->filepath}\"");
+            throw new RuntimeException("Can not write to \"{$this->filepath}\"");
         }
 
         return $bytesWritten;
@@ -81,16 +93,16 @@ class TextFileWriter implements FileWriter
 
     private function fflush()
     {
-        if (fflush($this->handle) === FALSE) {
-            throw new RuntimeException("Could not write to \"{$this->filepath}\"");
-        }
+        fflush($this->handle);
     }
 
     private function fclose()
     {
         if (fclose($this->handle) === FALSE) {
-            throw new RuntimeException("Could not close \"{$this->filepath}\"");
+            throw new RuntimeException("Can not close \"{$this->filepath}\"");
         }
+
+        $this->handle = NULL;
     }
 
     private function mkpath($filepath)
