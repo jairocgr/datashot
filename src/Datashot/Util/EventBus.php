@@ -3,7 +3,6 @@
 namespace Datashot\Util;
 
 use Closure;
-use Exception;
 
 /**
  * Simple EventBus implementation for internal use
@@ -33,11 +32,7 @@ class EventBus {
             ? $this->listeners[$event] : [];
 
         foreach ($listeners as $listener) {
-            try {
-                call_user_func_array($listener, $args);
-            } catch (Exception $e) {
-                $this->publish(get_class($e), $e);
-            }
+            call_user_func_array($listener, $args);
         }
     }
 }

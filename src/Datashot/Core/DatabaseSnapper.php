@@ -3,9 +3,14 @@
 namespace Datashot\Core;
 
 use Datashot\Util\EventBus;
+use PDO;
+use PDOStatement;
 
 interface DatabaseSnapper
 {
+    const START_DUMPING       = 'start_dumping';
+    const END_DUMPING         = 'end_dumping';
+
     const DUMPING_DDL         = 'dumping_ddl';
     const DUMPING_TABLE_DDL   = 'dumping_table_ddl';
 
@@ -56,4 +61,31 @@ interface DatabaseSnapper
      * @return string
      */
     function getDatabaseHost();
+
+    /**
+     * @return mixed
+     */
+    function get($key, $defaultValue = NULL);
+
+    /**
+     * @return mixed
+     */
+    function getr($key);
+
+    /**
+     * @return PDOStatement
+     */
+    function query($sql, $args = []);
+
+    /**
+     * @return int
+     */
+    function execute($sql, $args = []);
+
+    /**
+     * @return PDO
+     */
+    function getConnection();
+
+    function append($sql);
 }

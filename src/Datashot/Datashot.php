@@ -52,16 +52,16 @@ class Datashot
     /**
      * @return DatabaseSnapper
      */
-    private function buildSnapperFor($spec)
+    private function buildSnapperFor($snapper)
     {
-        $spec = $this->config->getSnapper($spec);
+        $snapper = $this->config->getSnapper($snapper);
 
-        $driver = $spec->getDriver();
+        $driver = $snapper->getDriver();
 
         switch ($driver) {
             case 'mysql':
 
-                return new MysqlDatabaseSnapper($this->bus, $spec);
+                return new MysqlDatabaseSnapper($this->bus, $snapper);
 
                 break;
             default:
@@ -69,5 +69,17 @@ class Datashot
                     "Insuported \"{$driver}\" database driver"
                 );
         }
+    }
+
+    public function restore($snapper, $target)
+    {
+        $restore = $this->buildRestorer($snapper, $target);
+
+        $restore->restore();
+    }
+
+    private function buildRestorer($snapper, $target)
+    {
+        $config = $this->config->getRestorer($snapper, $target);
     }
 }

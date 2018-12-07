@@ -12,27 +12,18 @@ use Datashot\Lang\DataBag;
 use Datashot\Util\EventBus;
 use PDO;
 use RuntimeException;
-use SebastianBergmann\CodeCoverage\Report\Text;
 
 class MysqlDatabaseSnapper implements DatabaseSnapper
 {
     const DATABASE_TIMEOUT = 60 * 60 * 16;
 
-    private static $EVENTS = [
-        DatabaseSnapper::SNAPED,
-    ];
-
     /** @var SnapperConfiguration */
     private $conf;
 
-    /**
-     * @var EventBus
-     */
+    /** @var EventBus */
     private $bus;
 
-    /**
-     * @var MysqlDumpFileWriter
-     */
+    /** @var MysqlDumpFileWriter */
     private $output;
 
     /** @var PDO */
@@ -49,7 +40,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->bus = $bus;
         $this->conf = $conf;
 
-        $this->processEventHooks($conf);
+        $this->processEventHooks();
 
         $this->checkPreconditions();
     }
@@ -92,6 +83,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $start = microtime(true);
 
+        $this->publish(DatabaseSnapper::START_DUMPING);
+
         if ($this->dumpAll()) {
             # dumping database schema
             $this->dumpTablesDdl();
@@ -108,6 +101,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->endStandardServerSettings();
 
+        $this->publish(DatabaseSnapper::END_DUMPING);
+
         $end = microtime(true);
 
         $this->snapped($start, $end);
@@ -117,9 +112,14 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function connect()
     {
-        $dsn = "mysql:host={$this->conf->getHost()};" .
-               "port={$this->conf->getPort()};" .
-               "dbname={$this->conf->getDatabaseName()}";
+        if ($this->conf->viaTcp()) {
+            $dsn = "mysql:host={$this->conf->getHost()};" .
+                   "port={$this->conf->getPort()};" .
+                   "dbname={$this->conf->getDatabaseName()}";
+        } else {
+            $dsn = "mysql:unix_socket={$this->conf->getUnixSocket()};" .
+                   "dbname={$this->conf->getDatabaseName()}";
+        }
 
         $this->pdo = new PDO($dsn, $this->conf->getUser(), $this->conf->getPassword(), [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -185,7 +185,9 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     {
         $builder = $this->lookupBuilder($table);
 
-        return call_user_func($builder, $this->pdo, $this->conf);
+        $where = call_user_func($builder, $this);
+
+        return $this->resolveBoundedParams($where);
     }
 
     private function lookupBuilder($table)
@@ -581,13 +583,40 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         return $string;
     }
 
-    private function processEventHooks(SnapperConfiguration $config)
+    private function processEventHooks()
     {
-        foreach (static::$EVENTS as $event) {
-            // Check if the config array has a event-based hook
-            if ($config->hasClosure($event)) {
-                $this->on($event, $config->get($event));
-            }
+        if ($this->conf->hasParam('before')) {
+
+            $before = $this->conf->get('before');
+
+            $this->bus->on(DatabaseSnapper::START_DUMPING, function () use ($before) {
+                if (is_callable($before)) {
+                    $result = call_user_func($before, $this);
+
+                    if (!empty($result)) {
+                        $this->append($this->resolveBoundedParams($result));
+                    }
+                }  else {
+                    $this->append($this->resolveBoundedParams(strval($before)));
+                }
+            });
+        }
+
+        if ($this->conf->hasParam('after')) {
+
+            $after = $this->conf->get('after');
+
+            $this->bus->on(DatabaseSnapper::END_DUMPING, function () use ($after) {
+                if (is_callable($after)) {
+                    $result = call_user_func($after, $this);
+
+                    if (!empty($result)) {
+                        $this->append($this->resolveBoundedParams($result));
+                    }
+                }  else {
+                    $this->append($this->resolveBoundedParams(strval($after)));
+                }
+            });
         }
     }
 
@@ -903,5 +932,105 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     function getDatabaseHost()
     {
         return $this->conf->getHost();
+    }
+
+    private function resolveBoundedParams($string)
+    {
+        if ($this->hasBoundedParams($string)) {
+
+            $params = $this->extractBoundedParams($string);
+
+            foreach ($params as $param) {
+
+                $value = $this->resolveParam($param);
+
+                $string = str_replace("{{$param}}", $value, $string);
+            }
+        }
+
+        return $string;
+    }
+
+    private function resolveParam($param)
+    {
+        $value = $this->conf->getr($param);
+
+        if (is_callable($value)) {
+            $value = call_user_func($value, $this);
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return mixed
+     */
+    function get($key, $defaultValue = NULL)
+    {
+        return $this->conf->get($key, $defaultValue);
+    }
+
+    /**
+     * @return mixed
+     */
+    function getr($key)
+    {
+        return $this->conf->getr($key);
+    }
+
+    /**
+     * @retun PDOStatement
+     */
+    function query($sql, $args = [])
+    {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($args);
+        return $stmt;
+    }
+
+    /**
+     * @retun int
+     */
+    public function execute($sql, $args = [])
+    {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($args);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * @return PDO
+     */
+    public function getConnection() {
+
+        if ($this->pdo == NULL) {
+            throw new RuntimeException(
+                "Connection not opened yet!"
+            );
+        }
+
+        return $this->pdo;
+    }
+
+    private function hasBoundedParams($string)
+    {
+        return preg_match("/\{[A-Za-z0-9\-\.\_]+\}/", $string);
+    }
+
+    private function extractBoundedParams($string)
+    {
+        $matches = [];
+        $params = [];
+
+        preg_match_all("/\{[A-Za-z0-9\-\.\_]+\}/", $string, $matches);
+
+        foreach ($matches[0] as $match) {
+            $match = str_replace('{', '', $match);
+            $match = str_replace('}', '', $match);
+
+            $params[] = $match;
+        }
+
+        return $params;
     }
 }

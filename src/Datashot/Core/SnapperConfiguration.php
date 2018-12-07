@@ -6,9 +6,7 @@ use Datashot\Lang\DataBag;
 
 class SnapperConfiguration
 {
-    /**
-     * @var string
-     */
+    /** @var string */
     private $name;
 
     /** @var DataBag */
@@ -126,5 +124,25 @@ class SnapperConfiguration
     public function get($key, $defaultValue = NULL)
     {
         return $this->data->get($key, $defaultValue);
+    }
+
+    public function getr($key)
+    {
+        return $this->data->getr($key);
+    }
+
+    public function hasParam($key)
+    {
+        return $this->data->exists($key);
+    }
+
+    public function viaTcp()
+    {
+        return $this->getDatabaseServer()->viaTcp();
+    }
+
+    public function getUnixSocket()
+    {
+        return $this->getDatabaseServer()->getUnixSocket();
     }
 }

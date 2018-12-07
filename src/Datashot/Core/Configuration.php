@@ -7,7 +7,9 @@ use RuntimeException;
 
 class Configuration
 {
-    /** @var DataBag */
+    /**
+     * @var DataBag
+     */
     private $data;
 
     /**
@@ -20,6 +22,11 @@ class Configuration
      */
     private $databaseServers = [];
 
+    /**
+     * @var RestoringSettings[]
+     */
+    private $restoringSettings = [];
+
     public function __construct(array $data)
     {
         $this->parseConfiguration($data);
@@ -31,6 +38,7 @@ class Configuration
 
         $this->parseDatabaseServers();
         $this->parseSnappers();
+        $this->parseRestoringSettings();
     }
 
     private function parseDatabaseServers()
@@ -60,8 +68,8 @@ class Configuration
 
         foreach ($snappers as $snapperName => $data) {
 
-            if ($data->exists('__extends')) {
-                $base = $this->data->get("snappers.{$data->__extends}");
+            if ($data->exists('extends')) {
+                $base = $this->data->get("snappers.{$data->extends}", new DataBag());
 
                 $data = new DataBag(array_replace_recursive(
                     $base->toArray(),
@@ -87,7 +95,7 @@ class Configuration
 
     private function parseSnapper($snapperName, DataBag $data)
     {
-        if ($data->exists('database_server')) {
+        if ($data->exists('database_server') && $data->isString('database_server')) {
 
             $serverName = $data->get('database_server');
 
@@ -97,6 +105,9 @@ class Configuration
         return new SnapperConfiguration($snapperName, $data);
     }
 
+    /**
+     * @return SnapperConfiguration
+     */
     public function getSnapper($snapper)
     {
         if (!isset($this->snappers[$snapper]))
@@ -107,5 +118,35 @@ class Configuration
         }
 
         return $this->snappers[$snapper];
+    }
+
+    public function getRestorer($snapper, $target)
+    {
+
+    }
+
+    private function parseRestoringSettings()
+    {
+        if ($this->data->notExists('restoring_settings')) {
+            return;
+        }
+
+        $snapers = $this->data->get('restoring_settings');
+
+        foreach ($snapers as $snaper => $databases) {
+            foreach ($databases as $database => $data) {
+
+                if (!isset($this->restoringSettings[$snaper])) {
+                    $this->restoringSettings[$snaper] = [];
+                }
+
+                $this->restoringSettings[$snaper][$database] = new RestoringSettings(
+                    $this->getSnapper($snaper),
+                    $this->getDatabase($database),
+                    $data
+                );
+
+            }
+        }
     }
 }

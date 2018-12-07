@@ -9,7 +9,7 @@
 
             'output_dir' => __DIR__,
 
-            'compress' => FALSE,
+            'compress' => TRUE,
 
             'database_server' => 'docker_mysql56',
 
@@ -48,12 +48,12 @@
 
                 'log' => "created_at > '2018-03-01'",
 
-                'users' => function (PDO $pdo, \Datashot\Core\SnapperConfiguration $conf) {
+                'users' => function (\Datashot\Core\DatabaseSnapper $snapper) {
 
-                    $excluded = [ $conf->get('excluded_user') ];
+                    $excluded = [ $snapper->get('excluded_user') ];
                     $selected = [];
 
-                    $stmt = $pdo->query("SELECT login FROM users WHERE active IS TRUE");
+                    $stmt = $snapper->query("SELECT login FROM users WHERE active IS TRUE");
 
                     foreach ($stmt->fetchAll() as $res) {
                         $selected[] = $res->login;
@@ -78,8 +78,14 @@
             ],
 
             // Event-based hook
-            'snapped' => function ($dshot) {
-                $dshot->append("
+            'before' => function (\Datashot\Core\DatabaseSnapper $snapper) {
+                $snapper->append("SELECT 'Restoring snapshot...';");
+
+                return "-- comment\n";
+            },
+
+            'after' => function (\Datashot\Core\DatabaseSnapper $snapper) {
+                $snapper->append("
 
                   -- Set default user password
                   SELECT 'Setting user password to default_pw...';
@@ -94,7 +100,8 @@
         'workbench1' => [
             'driver'    => 'mysql',
 
-            'host'      => getenv('WORKBENCH_HOST'),
+            'unix_socket' => '/var/run/mysqld/mysqld.sock',
+            //'host'      => getenv('WORKBENCH_HOST'),
             'port'      => getenv('WORKBENCH_PORT'),
 
             'username'  => getenv('WORKBENCH_USER'),
@@ -111,4 +118,13 @@
             'password'  => getenv('DOCKER_MYSQL56_PASSWORD')
         ]
     ],
+
+
+    'restoring_settings' => [
+        'crm' => [
+            'workbench1' => [
+                'database_name' => 'restored_snap'
+            ]
+        ]
+    ]
 ];

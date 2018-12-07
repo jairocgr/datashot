@@ -238,4 +238,113 @@ class DataBag implements ArrayAccess, Iterator
     {
         return (array_keys($this->data))[$index];
     }
+
+    public function isString($key)
+    {
+        return is_string($this->get($key));
+    }
+
+    public function required($key, $errmsg = "Key \":key\" not found!")
+    {
+        if (is_array($key)) {
+            foreach ($key as $k) {
+                $this->required($k);
+            }
+
+            return;
+        }
+
+        if ($this->notExists($key)) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key
+            ]));
+        }
+    }
+
+    public function regex($key, $regex, $errmsg = "Invalid value :value for key :key")
+    {
+        $value = $this->get($key);
+
+        if (!preg_match($regex, $value)) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key,
+                'value' => $value
+            ]));
+        }
+    }
+
+    private function interpolate($msg, array $params)
+    {
+        foreach ($params as $key => $value) {
+            $msg = str_replace(":{$key}", $this->valueToString($value));
+        }
+
+        return $msg;
+    }
+
+    private function valueToString($value)
+    {
+        if (null === $value) {
+            return 'NULL';
+        }
+
+        if (true === $value) {
+            return 'TRUE';
+        }
+
+        if (false === $value) {
+            return 'FALSE';
+        }
+
+        if (is_array($value)) {
+            return 'array';
+        }
+
+        if (is_object($value)) {
+            if (method_exists($value, '__toString')) {
+                return get_class($value).': '.self::valueToString($value->__toString());
+            }
+
+            return get_class($value);
+        }
+
+        if (is_resource($value)) {
+            return 'resource';
+        }
+
+        if (is_string($value)) {
+            return '"'.$value.'"';
+        }
+
+        return (string) $value;
+    }
+
+    public function between($key, $minValue, $maxValue, $errmsg = "Invalid value :value for key :key")
+    {
+        $value = $this->getInt($key);
+
+        if ($value > $maxValue || $value < $minValue) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key,
+                'value' => $this->get($key)
+            ]));
+        }
+    }
+
+    public function getInt($key, $defaultValue = NULL)
+    {
+        return intval($this->get($key, $defaultValue));
+    }
+
+    public function oneOf($key, array $values, $errmsg = "Invalid value :value for key :key")
+    {
+        $value = $this->get($key);
+
+        if (!in_array($value, $values, true)) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key,
+                'value' => $value
+            ]));
+        }
+    }
 }
