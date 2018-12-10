@@ -43,4 +43,47 @@ class RestoringSettings
     {
         return $this->targetDatabase;
     }
+
+    /**
+     * @return string
+     */
+    public function getDriver()
+    {
+        return $this->getSourceSnapper()->getDriver();
+    }
+
+    public function getTargetDatabaseName()
+    {
+        return $this->data->getr("database_name");
+    }
+
+    public function getDatabaseCharset()
+    {
+        return $this->getSourceSnapper()->getCharset();
+    }
+
+    public function getDatabaseCollation()
+    {
+        return $this->getSourceSnapper()->getCollation();
+    }
+
+    public function hasBeforeHook()
+    {
+        return $this->data->exists('before');
+    }
+
+    public function getBeforeHook()
+    {
+        return $this->data->get('before');
+    }
+
+    public function hasAfterHook()
+    {
+        return $this->data->exists('after');
+    }
+
+    public function getAfterHook()
+    {
+        return $this->data->get('after');
+    }
 }

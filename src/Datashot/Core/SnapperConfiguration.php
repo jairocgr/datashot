@@ -32,7 +32,15 @@ class SnapperConfiguration
     public function getOutputFilePath()
     {
         return $this->data->get('output_dir', getcwd()) . DIRECTORY_SEPARATOR .
-               $this->data->get('output_file', $this->name) .
+               $this->getOutputFileName();
+    }
+
+    /**
+     * @return string
+     */
+    public function getOutputFileName()
+    {
+        return $this->data->get('output_file', $this->name) .
               ($this->compressOutput() ? '.gz' : '.sql');
     }
 
@@ -144,5 +152,20 @@ class SnapperConfiguration
     public function getUnixSocket()
     {
         return $this->getDatabaseServer()->getUnixSocket();
+    }
+
+    public function getDatabasePassword()
+    {
+        return $this->getDatabaseServer()->getPassword();
+    }
+
+    public function getCollation()
+    {
+        return $this->data->get('database_collation', 'utf8_general_ci');
+    }
+
+    public function getCharset()
+    {
+        return $this->data->get('database_charset', 'utf8');
     }
 }

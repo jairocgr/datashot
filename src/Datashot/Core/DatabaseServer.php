@@ -70,7 +70,8 @@ class DatabaseServer
 
     public function viaTcp()
     {
-        return $this->data->exists('host');
+        return $this->data->notExists('socket') ||
+               empty($this->data->get('socket'));
     }
 
     private function validate()

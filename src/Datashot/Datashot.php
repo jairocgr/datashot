@@ -4,7 +4,9 @@ namespace Datashot;
 
 use Datashot\Core\Configuration;
 use Datashot\Core\DatabaseSnapper;
+use Datashot\Core\SnapRestorer;
 use Datashot\Mysql\MysqlDatabaseSnapper;
+use Datashot\Mysql\MysqlSnapRestorer;
 use Datashot\Util\EventBus;
 use RuntimeException;
 
@@ -42,6 +44,7 @@ class Datashot
         $this->bus = $bus;
         $this->config = new Configuration($config);
     }
+
     public function snap($spec)
     {
         $snapper = $this->buildSnapperFor($spec);
@@ -78,8 +81,27 @@ class Datashot
         $restore->restore();
     }
 
+    /**
+     * @return SnapRestorer
+     */
     private function buildRestorer($snapper, $target)
     {
-        $config = $this->config->getRestorer($snapper, $target);
+        $settings = $this->config->getRestoringSettings($snapper, $target);
+
+        $driver = $settings->getDriver();
+
+        switch ($driver) {
+            case 'mysql':
+
+                return new MysqlSnapRestorer($this->bus, $settings);
+
+                break;
+            default:
+                throw new RuntimeException(
+                    "Insuported \"{$driver}\" database driver"
+                );
+        }
+
+
     }
 }

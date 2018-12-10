@@ -73,7 +73,8 @@ INSERT INTO logs VALUES
   (101, 'log101', '2018-01-01 13:30:35'),
   (102, 'log102', '2018-02-03 13:30:35'),
   (103, 'log103', '2018-03-21 13:30:35'),
-  (104, 'log104', '2018-04-01 13:30:35');
+  (104, 'log104', '2018-04-01 13:30:35'),
+  (105, 'log105', '2018-04-17 13:30:35');
 
 INSERT INTO news VALUES
   (101, 'news 101', false, '2018-01-01 13:30:35'),
@@ -81,7 +82,7 @@ INSERT INTO news VALUES
   (103, 'news 103', true,  '2018-03-21 13:30:35'),
   (104, 'news 104', true,  '2018-04-01 13:30:35');
 
-create view datashot.user_log AS
+create view user_log AS
   select msg, login from logs, users;
 
 DELIMITER ;;

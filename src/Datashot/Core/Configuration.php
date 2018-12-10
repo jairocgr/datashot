@@ -113,16 +113,25 @@ class Configuration
         if (!isset($this->snappers[$snapper]))
         {
             throw new RuntimeException(
-              "Snapper \"{$snapper}\""
+              "Snapper \"{$snapper}\" not found!"
             );
         }
 
         return $this->snappers[$snapper];
     }
 
-    public function getRestorer($snapper, $target)
+    /**
+     * @return RestoringSettings
+     */
+    public function getRestoringSettings($snapper, $target)
     {
+        if (!isset($this->restoringSettings[$snapper][$target])) {
+            throw new RuntimeException(
+                "Restoring not found for \"{$snapper}\" to \"{$target}\" database!"
+            );
+        }
 
+        return $this->restoringSettings[$snapper][$target];
     }
 
     private function parseRestoringSettings()

@@ -29,7 +29,7 @@ interface DatabaseSnapper
     const DUMPING_VIEW        = 'dumping_view';
 
     const TABLE_DUMPED       = 'table_dumped';
-    const SNAPED             = 'snaped';
+    const SNAPPED            = 'snapped';
     const CREATING_SNAP_FILE = 'creating_snap_file';
     const SNAPPING           = 'snapping';
 
@@ -88,4 +88,19 @@ interface DatabaseSnapper
     function getConnection();
 
     function append($sql);
+
+    /**
+     * @return bool
+     */
+    function viaTcp();
+
+    /**
+     * @return string
+     */
+    function getDatabaseSocket();
+
+    /**
+     * @return string
+     */
+    function getDatabasePassword();
 }

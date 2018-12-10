@@ -18,14 +18,14 @@
             // 'where' => 'true limit 1000',
         ],
 
-        'crm_sql' => [
+        'dshot_sql' => [
 
-            'extends' => 'crm',
+            'extends' => 'dshot',
 
             'compress' => FALSE,
         ],
 
-        'crm' => [
+        'dshot' => [
 
             'triggers'  => TRUE,
             'routines'  => TRUE,
@@ -46,7 +46,7 @@
 
             'wheres' => [
 
-                'log' => "created_at > '2018-03-01'",
+                'logs' => "created_at > '2018-03-01'",
 
                 'users' => function (\Datashot\Core\DatabaseSnapper $snapper) {
 
@@ -100,8 +100,9 @@
         'workbench1' => [
             'driver'    => 'mysql',
 
-            'unix_socket' => '/var/run/mysqld/mysqld.sock',
-            //'host'      => getenv('WORKBENCH_HOST'),
+            'unix_socket' => getenv('WORKBENCH_SOCKET'),
+
+            'host'      => getenv('WORKBENCH_HOST'),
             'port'      => getenv('WORKBENCH_PORT'),
 
             'username'  => getenv('WORKBENCH_USER'),
@@ -121,9 +122,25 @@
 
 
     'restoring_settings' => [
-        'crm' => [
+        'dshot' => [
             'workbench1' => [
-                'database_name' => 'restored_snap'
+                'database_name' => 'restored_dshot',
+            ]
+        ],
+        'dshot_sql' => [
+            'workbench1' => [
+                'database_name' => 'restored_dshot_sql',
+
+                'before' => function () {
+                    return "create table _test_table (
+                      id integer not null auto_increment primary key,
+                      handle varchar(24) not null
+                    )";
+                },
+
+                'after' => function (\Datashot\Core\SnapRestorer $restorer) {
+                    $restorer->execute("UPDATE users SET password = sha1('default_pw')");
+                }
             ]
         ]
     ]

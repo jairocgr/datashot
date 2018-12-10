@@ -10,6 +10,7 @@ use Datashot\IO\GzipFileWriter;
 use Datashot\IO\TextFileWriter;
 use Datashot\Lang\DataBag;
 use Datashot\Util\EventBus;
+use Datashot\Util\Shell;
 use PDO;
 use RuntimeException;
 
@@ -35,10 +36,15 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     /** @var string */
     private $connectionFile;
 
+    /** @var Shell */
+    private $shell;
+
     public function __construct(EventBus $bus, SnapperConfiguration $conf)
     {
         $this->bus = $bus;
         $this->conf = $conf;
+
+        $this->shell = Shell::getInstance();
 
         $this->processEventHooks();
 
@@ -229,7 +235,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function snapped($start, $end)
     {
-        $this->publish(DatabaseSnapper::SNAPED, [
+        $this->publish(DatabaseSnapper::SNAPPED, [
             'time' => ($end - $start)
         ]);
     }
@@ -635,6 +641,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->output->command("SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO'");
 
         $this->output->command("SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0");
+
+        $this->output->command("SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT");
     }
 
     private function endStandardServerSettings()
@@ -647,6 +655,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->output->command("SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS");
         $this->output->command("SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION");
         $this->output->command("SET SQL_NOTES=@OLD_SQL_NOTES");
+        $this->output->command("SET AUTOCOMMIT=@OLD_AUTOCOMMIT");
         $this->output->newLine(2);
     }
 
@@ -806,16 +815,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function exec($command)
     {
-        $return_var = 1;
-        $stdout = [];
-        exec(" ( {$command} ) 2>&1 ", $stdout, $return_var);
-
-        if ($return_var !== 0 || count($stdout) > 0) {
-            throw new RuntimeException(
-                "Troubles executing the command! \n  " .
-                implode("\n  ", $stdout)
-            );
-        }
+        $this->shell->run($command);
     }
 
     private function setupConnectionFile()
@@ -829,37 +829,43 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         if (($temp = fopen($this->connectionFile, 'w')) === FALSE) {
             throw new RuntimeException(
-                "Não foi possível criar o arquivo de conexão " .
-                "\"{$this->connectionFile}\""
+                "Could not create the connection file " .
+                "\"{$this->connectionFile}\"!"
             );
         }
 
+        if ($this->conf->viaTcp()) {
+            $connectionParams = "host={$this->conf->getHost()}\n" .
+                                "port={$this->conf->getPort()}\n";
+        } else {
+            $connectionParams = "socket={$this->conf->getUnixSocket()}\n";
+        }
+
         $res = fwrite($temp,
-            "[mysqldump]\n" .
-            "host={$this->conf->getHost()}\n" .
-            "port={$this->conf->getPort()}\n" .
+            "[client]\n" .
+            $connectionParams .
             "user={$this->conf->getUser()}\n" .
             "password={$this->conf->getPassword()}\n"
         );
 
         if ($res === FALSE) {
             throw new RuntimeException(
-                "Não foi possível escrever o arquivo de conexão " .
-                "\"{$this->connectionFile}\""
+                "The connection file \"{$this->connectionFile}\" " .
+                "could not be written!"
             );
         }
 
         if (fflush($temp) === FALSE) {
             throw new RuntimeException(
-                "Não foi possível escrever o arquivo de conexão " .
-                "\"{$this->connectionFile}\""
+                "The connection file \"{$this->connectionFile}\" " .
+                "could not be written!"
             );
         }
 
         if (fclose($temp) === FALSE) {
             throw new RuntimeException(
-                "Não foi possível fechar o arquivo de conexão " .
-                "\"{$this->connectionFile}\""
+                "The connection file \"{$this->connectionFile}\" " .
+                "could not be closed!"
             );
         }
     }
@@ -1032,5 +1038,29 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         }
 
         return $params;
+    }
+
+    /**
+     * @return bool
+     */
+    function viaTcp()
+    {
+        return $this->conf->viaTcp();
+    }
+
+    /**
+     * @return string
+     */
+    function getDatabaseSocket()
+    {
+        return $this->conf->getUnixSocket();
+    }
+
+    /**
+     * @return string
+     */
+    function getDatabasePassword()
+    {
+        return $this->conf->getDatabasePassword();
     }
 }

@@ -22,9 +22,20 @@ class RestoreCommand extends BaseCommand
     protected function exec()
     {
         foreach ($this->snappers as $snapper) {
-            foreach ($this->input->getOption('target') as $target) {
+            foreach ($this->getTargets() as $target) {
                 $this->datashot->restore($snapper, $target);
             }
         }
+    }
+
+    private function getTargets()
+    {
+        $targets = $this->input->getOption('target');
+
+        if (is_string($targets)) {
+            return [ $targets ];
+        }
+
+        return $targets;
     }
 }

@@ -3,28 +3,62 @@
 namespace Datashot\Core;
 
 use Datashot\Util\EventBus;
+use PDO;
+use PDOStatement;
 
-class SnapRestorer
+interface SnapRestorer
 {
-    /**
-     * @var EventBus
-     */
-    private $bus;
+    const RESTORING = 'restoring_snap';
+    const RESTORED  = 'snap_restored';
+    const CREATING_DATABASE = 'creating_database';
+    const STDOUT = 'restoring_stdout';
+
+    function __construct(EventBus $bus, RestoringSettings $config);
+
+    function restore();
 
     /**
-     * @var RestoringSettings
+     * @return DatabaseServer
      */
-    private $config;
+    function getTargetDatabase();
 
-    public function __construct(EventBus $bus, RestoringSettings $config)
-    {
-        $this->bus = $bus;
-        $this->config = $config;
-    }
+    /**
+     * @return SnapperConfiguration
+     */
+    function getSourceSnapper();
 
-    public function restore()
-    {
-        $this->bus->publish();
-    }
+    /**
+     * @return string
+     */
+    function getSourceFileName();
 
+    /**
+     * @return string
+     */
+    function getTargetDatabaseName();
+
+    /**
+     * @return string
+     */
+    function getDatabaseCharset();
+
+    /**
+     * @return string
+     */
+    function getDatabaseCollation();
+
+    /**
+     * @return int
+     */
+    function execute($sql, $args = []);
+
+    /**
+     * @return PDOStatement
+     */
+    function query($sql, $args = []);
+
+    /**
+     * @return PDO
+     */
+    function getConnection();
 }

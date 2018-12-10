@@ -3,6 +3,8 @@
 namespace Datashot\Console\Command;
 
 use Datashot\Core\DatabaseSnapper;
+use Datashot\Core\SnapperConfiguration;
+use Datashot\Core\SnapRestorer;
 use Datashot\Datashot;
 use Datashot\Util\ConsoleOutput;
 use Datashot\Util\EventBus;
@@ -11,6 +13,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Process;
 
 abstract class BaseCommand extends Command
 {
@@ -132,8 +135,14 @@ abstract class BaseCommand extends Command
                 "from <b>{$snapper->getDatabaseServer()}</b> database "
             );
 
-            $this->console->puts("  host <b>{$snapper->getDatabaseHost()}:{$snapper->getDatabasePort()}</b>");
+            if ($snapper->viaTcp()) {
+                $this->console->puts("  host <b>{$snapper->getDatabaseHost()}:{$snapper->getDatabasePort()}</b>");
+            } else {
+                $this->console->puts("  socket <b>{$snapper->getDatabaseSocket()}</b>");
+            }
+
             $this->console->puts("  user <b>{$snapper->getDatabaseUser()}</b>");
+            $this->console->puts("  pwd <b>{$this->formatPwd($snapper->getDatabasePassword())}</b>");
             $this->console->newLine();
         });
 
@@ -247,7 +256,7 @@ abstract class BaseCommand extends Command
             $this->console->puts("Procedure <b>{$data->procedure}</b>");
         });
 
-        $this->bus->on(DatabaseSnapper::SNAPED, function ($snapper, $data) {
+        $this->bus->on(DatabaseSnapper::SNAPPED, function ($snapper, $data) {
 
             if ($this->verbosity < 1) {
                 $this->console->writeln(" <success>Done ✓</success> <fade>({$this->format($data->time)})</fade>");
@@ -257,6 +266,86 @@ abstract class BaseCommand extends Command
             $this->console->newLine();
             $this->console->puts("<success>Done ✓</success> <fade>({$this->format($data->time)})</fade>");
             $this->console->newLine();
+        });
+
+        $this->bus->on(SnapRestorer::RESTORING, function (SnapRestorer $restorer) {
+
+            if ($this->verbosity < 1) {
+
+                $this->console->write(
+                    " → Restoring <b>{$restorer->getSourceFileName()}</b> " .
+                    "to <b>{$restorer->getTargetDatabase()}</b> database..."
+                );
+
+                return;
+            }
+
+            $db = $restorer->getTargetDatabase();
+
+            $this->console->puts(
+                "Restoring <b>{$restorer->getSourceFileName()}</b> " .
+                "to <b>{$restorer->getTargetDatabase()}</b> database "
+            );
+
+            if ($db->viaTcp()) {
+                $this->console->puts("  host <b>{$db->getHost()}:{$db->getPort()}</b>");
+            } else {
+                $this->console->puts("  socket <b>{$db->getUnixSocket()}</b>");
+            }
+
+            $this->console->puts("  user <b>{$db->getUserName()}</b>");
+            $this->console->puts("  pwd <b>{$this->formatPwd($db->getPassword())}</b>");
+            $this->console->newLine();
+        });
+
+
+        $this->bus->on(SnapRestorer::RESTORED, function ($restorer, $data) {
+
+            if ($this->verbosity < 1) {
+                $this->console->writeln(" <success>Done ✓</success> <fade>({$this->format($data->time)})</fade>");
+                return;
+            }
+
+            $this->console->write('</>');
+
+            $this->console->newLine();
+            $this->console->puts("<success>Done ✓</success> <fade>({$this->format($data->time)})</fade>");
+            $this->console->newLine();
+        });
+
+
+        $this->bus->on(SnapRestorer::CREATING_DATABASE, function (SnapRestorer $restorer) {
+
+            if ($this->verbosity < 1) {
+                return;
+            }
+
+            $this->console->puts("Creating <b>{$restorer->getTargetDatabaseName()}</b> at <b>{$restorer->getTargetDatabase()}</b>...");
+
+            if ($this->verbosity >= 2) {
+                $this->console->fade("  charset <b>{$restorer->getDatabaseCharset()} ({$restorer->getDatabaseCollation()})</b>");
+            }
+
+            $this->console->newLine();
+        });
+
+        $this->bus->on(SnapRestorer::STDOUT, function (SnapRestorer $restorer, $data) {
+
+            if ($this->verbosity < 1) {
+                return;
+            }
+
+            static $first = TRUE;
+
+            if ($first) {
+                $this->console->puts("Executing <b>{$restorer->getSourceFileName()}</b>:");
+                $this->console->write("  ");
+                $first = FALSE;
+            }
+
+            $tag = ($data->type == Process::ERR) ? '<red>' : '</>';
+
+            $this->console->write(str_replace("\n", "\n  ", $tag . $data->data));
         });
     }
 
@@ -312,5 +401,20 @@ abstract class BaseCommand extends Command
         }
 
         return $string;
+    }
+
+    private function formatPwd($password)
+    {
+        if (empty($password)) {
+            return "EMPTY_PASSWORD_STRING";
+        }
+
+        $password = strval($password);
+
+        $showedCharacters = intval(ceil(strlen($password) / 6));
+
+        $viseblePart = substr($password, 0, $showedCharacters);
+
+        return str_pad($viseblePart, strlen($password), '*');
     }
 }
