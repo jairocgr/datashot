@@ -246,14 +246,6 @@ class DataBag implements ArrayAccess, Iterator
 
     public function required($key, $errmsg = "Key \":key\" not found!")
     {
-        if (is_array($key)) {
-            foreach ($key as $k) {
-                $this->required($k);
-            }
-
-            return;
-        }
-
         if ($this->notExists($key)) {
             throw new RuntimeException($this->interpolate($errmsg, [
                 'key' => $key
@@ -268,7 +260,7 @@ class DataBag implements ArrayAccess, Iterator
         if (!preg_match($regex, $value)) {
             throw new RuntimeException($this->interpolate($errmsg, [
                 'key' => $key,
-                'value' => $value
+                'value' => $this->valueToString($value)
             ]));
         }
     }
@@ -276,7 +268,7 @@ class DataBag implements ArrayAccess, Iterator
     private function interpolate($msg, array $params)
     {
         foreach ($params as $key => $value) {
-            $msg = str_replace(":{$key}", $this->valueToString($value));
+            $msg = str_replace(":{$key}", $value, $msg);
         }
 
         return $msg;
@@ -316,7 +308,7 @@ class DataBag implements ArrayAccess, Iterator
             return '"'.$value.'"';
         }
 
-        return (string) $value;
+        return strval($value);
     }
 
     public function between($key, $minValue, $maxValue, $errmsg = "Invalid value :value for key :key")
@@ -326,7 +318,7 @@ class DataBag implements ArrayAccess, Iterator
         if ($value > $maxValue || $value < $minValue) {
             throw new RuntimeException($this->interpolate($errmsg, [
                 'key' => $key,
-                'value' => $this->get($key)
+                'value' => $this->valueToString($this->get($key))
             ]));
         }
     }
@@ -343,7 +335,30 @@ class DataBag implements ArrayAccess, Iterator
         if (!in_array($value, $values, true)) {
             throw new RuntimeException($this->interpolate($errmsg, [
                 'key' => $key,
-                'value' => $value
+                'value' => $this->valueToString($value)
+            ]));
+        }
+    }
+
+    public function checkIfString($key, $errmsg = "Invalid :value for key :key! Must be a string")
+    {
+        $value = $this->get($key);
+
+        if (!is_string($value)) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key,
+                'value' => $this->valueToString($value)
+            ]));
+        }
+    }
+
+    public function checkIfNotEmptyString($key, $errmsg = "Key :key must not be empty!")
+    {
+        $value = $this->get($key);
+
+        if (empty(trim(strval($value)))) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key
             ]));
         }
     }

@@ -40,12 +40,19 @@ class MysqlSnapRestorer implements SnapRestorer
      */
     private $shell;
 
+    /**
+     * @var MysqlClient
+     */
+    private $client;
+
     public function __construct(EventBus $bus, RestoringSettings $config)
     {
         $this->bus = $bus;
         $this->config = $config;
 
         $this->shell = Shell::getInstance();
+
+        $this->checkPreConditions();
     }
 
     public function restore()
@@ -68,8 +75,8 @@ class MysqlSnapRestorer implements SnapRestorer
 
         $this->exec("
             {$cmd} {$this->getSourceFilePath()} |
-            /usr/bin/mysql --defaults-file={$this->connectionFile} \
-                {$this->getTargetDatabaseName()}
+            mysql --defaults-file={$this->connectionFile} \
+                  {$this->getTargetDatabaseName()}
         ");
 
         $this->afterHook();
@@ -118,7 +125,7 @@ class MysqlSnapRestorer implements SnapRestorer
             $dsn = "mysql:host={$target->getHost()};" .
                    "port={$target->getPort()};";
         } else {
-            $dsn = "mysql:unix_socket={$target->getUnixSocket()};";
+            $dsn = "mysql:unix_socket={$target->getSocket()};";
         }
 
         $this->pdo = new PDO($dsn, $target->getUserName(), $target->getPassword(), [
@@ -137,7 +144,7 @@ class MysqlSnapRestorer implements SnapRestorer
                    "port={$target->getPort()};" .
                    "dbname={$this->getTargetDatabaseName()}";
         } else {
-            $dsn = "mysql:unix_socket={$target->getUnixSocket()};" .
+            $dsn = "mysql:unix_socket={$target->getSocket()};" .
                    "dbname={$this->getTargetDatabaseName()}";
         }
 
@@ -206,7 +213,7 @@ class MysqlSnapRestorer implements SnapRestorer
             $connectionParams = "host={$target->getHost()}\n" .
                                 "port={$target->getPort()}\n";
         } else {
-            $connectionParams = "socket={$target->getUnixSocket()}\n";
+            $connectionParams = "socket={$target->getSocket()}\n";
         }
 
         $res = fwrite($temp,
@@ -341,7 +348,6 @@ class MysqlSnapRestorer implements SnapRestorer
      */
     public function getConnection()
     {
-
         if ($this->pdo == NULL) {
             throw new RuntimeException(
                 "Connection not opened yet!"
@@ -349,5 +355,54 @@ class MysqlSnapRestorer implements SnapRestorer
         }
 
         return $this->pdo;
+    }
+
+    private function checkPreconditions()
+    {
+        if (!$this->commandExists('mysql')) {
+            throw new RuntimeException(
+                "Command \"mysql\" not found"
+            );
+        }
+
+        if (!$this->commandExists('gunzip')) {
+            throw new RuntimeException(
+                "Command \"gunzip\" not found"
+            );
+        }
+
+        if (!$this->commandExists('cat')) {
+            throw new RuntimeException(
+                "Command \"cat\" not found"
+            );
+        }
+    }
+
+    private function commandExists($command)
+    {
+        $return_var = 1;
+        $stdout = [];
+
+        exec(" ( command -v {$command} > /dev/null 2>&1 ) 2>&1 ", $stdout, $return_var);
+
+        return $return_var === 0;
+    }
+
+    public function puts($string)
+    {
+        $this->bus->publish('output', $string);
+    }
+
+    function set($key, $value)
+    {
+        return $this->config->set($key, $value);
+    }
+
+    /**
+     * @return mixed
+     */
+    function get($key, $defaultValue = NULL)
+    {
+        return $this->config->get($key, $defaultValue);
     }
 }

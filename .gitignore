@@ -3,14 +3,16 @@ node_modules/
 npm-debug.log
 .idea
 
+local
+tests/local/
+
 # Laravel 4 specific
 bootstrap/compiled.php
 app/storage/
 
 tests/assets/snapped.gz
 tests/assets/snapped.sql
-tests/assets/snapped.plain.sql
-tests/assets/snapped.expanded.sql
+tests/assets/snapped.gunzip
 
 # Laravel 5 & Lumen specific
 public/storage

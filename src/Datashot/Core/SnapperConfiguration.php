@@ -16,6 +16,8 @@ class SnapperConfiguration
     {
         $this->name = $name;
         $this->data = $data;
+
+        $this->validate();
     }
 
     /**
@@ -149,9 +151,9 @@ class SnapperConfiguration
         return $this->getDatabaseServer()->viaTcp();
     }
 
-    public function getUnixSocket()
+    public function getSocket()
     {
-        return $this->getDatabaseServer()->getUnixSocket();
+        return $this->getDatabaseServer()->getSocket();
     }
 
     public function getDatabasePassword()
@@ -167,5 +169,27 @@ class SnapperConfiguration
     public function getCharset()
     {
         return $this->data->get('database_charset', 'utf8');
+    }
+
+    private function validate()
+    {
+        if ($this->data->exists('output_dir')) {
+            $this->data->checkIfString('output_dir', "Invalid :key :value for {$this->name} snapper!");
+        }
+
+        if ($this->data->exists('output_file')) {
+            $this->data->checkIfString('output_file', "Invalid :key :value for {$this->name} snapper!");
+            $this->data->checkIfNotEmptyString('output_file', ":key can not be empty in {$this->name} snapper!");
+        }
+
+        if ($this->data->exists('database_name')) {
+            $this->data->checkIfString('database_name', "Invalid :key :value for {$this->name} snapper!");
+            $this->data->checkIfNotEmptyString('database_name', ":key can not be empty in {$this->name} snapper!");
+        }
+    }
+
+    public function set($key, $value)
+    {
+        $this->data->set($key, $value);
     }
 }

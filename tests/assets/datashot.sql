@@ -39,6 +39,12 @@ CREATE TABLE news (
   created_at timestamp not null
 );
 
+CREATE TABLE hash (
+  id integer not null auto_increment primary key,
+  k varchar(24) not null,
+  value varchar(32)
+);
+
 DELIMITER ;;
 CREATE TRIGGER users_AFTER_UPDATE AFTER UPDATE ON users FOR EACH ROW
 BEGIN
@@ -81,6 +87,12 @@ INSERT INTO news VALUES
   (102, 'news 102', true,  '2018-02-03 13:30:35'),
   (103, 'news 103', true,  '2018-03-21 13:30:35'),
   (104, 'news 104', true,  '2018-04-01 13:30:35');
+
+INSERT INTO hash VALUES
+  (101, 'key101', 'val101'),
+  (102, 'key102', 'val102'),
+  (103, 'key103', 'val103'),
+  (104, 'key104', 'val104');
 
 create view user_log AS
   select msg, login from logs, users;

@@ -33,11 +33,6 @@ class GzipFileWriter implements FileWriter
         return $this->fwrite($string);
     }
 
-    public function writeln($string)
-    {
-        return $this->write($string . PHP_EOL);
-    }
-
     public function flush()
     {
         $this->checkIfOpened();
@@ -54,11 +49,6 @@ class GzipFileWriter implements FileWriter
         $this->fclose();
     }
 
-    public function newLine($count = 1)
-    {
-        return $this->write(str_repeat(PHP_EOL, $count));
-    }
-
     public function open()
     {
         $this->mkpath($this->filepath);
@@ -72,7 +62,7 @@ class GzipFileWriter implements FileWriter
             $this->handle = gzopen($this->filepath, "a");
         }
 
-        stream_set_write_buffer($this->handle, 4096);
+        stream_set_write_buffer($this->handle, 4096 * 4);
 
         if ($this->handle  === FALSE) {
             throw new RuntimeException("Can not open \"{$this->filepath}\"");

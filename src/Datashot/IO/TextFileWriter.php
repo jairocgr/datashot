@@ -27,11 +27,6 @@ class TextFileWriter implements FileWriter
         return $this->fwrite($string);
     }
 
-    public function writeln($string)
-    {
-        return $this->write($string . PHP_EOL);
-    }
-
     public function flush()
     {
         $this->checkIfOpened();
@@ -46,11 +41,6 @@ class TextFileWriter implements FileWriter
         $this->fflush();
 
         $this->fclose();
-    }
-
-    public function newLine($count = 1)
-    {
-        return $this->write(str_repeat(PHP_EOL, $count));
     }
 
     public function open()

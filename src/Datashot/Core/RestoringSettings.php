@@ -86,4 +86,21 @@ class RestoringSettings
     {
         return $this->data->get('after');
     }
+
+    /**
+     * @return DataBag
+     */
+    public function getData() {
+        return $this->data;
+    }
+
+    public function get($key, $defaultValue)
+    {
+        return $this->data->get($key, $defaultValue);
+    }
+
+    public function set($key, $value)
+    {
+        $this->data->set($key, $value);
+    }
 }

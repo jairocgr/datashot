@@ -61,4 +61,13 @@ interface SnapRestorer
      * @return PDO
      */
     function getConnection();
+
+    function puts($string);
+
+    function set($key, $value);
+
+    /**
+     * @return mixed
+     */
+    function get($key, $defaultValue = NULL);
 }

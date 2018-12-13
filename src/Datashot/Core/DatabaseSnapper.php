@@ -62,15 +62,12 @@ interface DatabaseSnapper
      */
     function getDatabaseHost();
 
-    /**
-     * @return mixed
-     */
-    function get($key, $defaultValue = NULL);
+    function set($key, $value);
 
     /**
      * @return mixed
      */
-    function getr($key);
+    function get($key, $defaultValue = NULL);
 
     /**
      * @return PDOStatement
@@ -103,4 +100,6 @@ interface DatabaseSnapper
      * @return string
      */
     function getDatabasePassword();
+
+    function puts($string);
 }

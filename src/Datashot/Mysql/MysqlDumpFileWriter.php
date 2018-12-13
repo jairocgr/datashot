@@ -18,7 +18,7 @@ class MysqlDumpFileWriter
 
     public function comment($string)
     {
-        return $this->writer->writeln("-- {$string}");
+        return $this->writeln("-- {$string}");
     }
 
     public function message($msg)
@@ -28,17 +28,17 @@ class MysqlDumpFileWriter
 
     public function command($sql)
     {
-        return $this->writer->writeln("{$sql};");
+        return $this->writeln("{$sql};");
     }
 
     public function newLine($count = 1)
     {
-        return $this->writer->newLine($count);
+        return $this->write(str_repeat(PHP_EOL, $count));
     }
 
     public function writeln($string)
     {
-        return $this->writer->writeln($string);
+        return $this->write($string . PHP_EOL);
     }
 
     public function write($string)

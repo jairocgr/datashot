@@ -2,6 +2,7 @@
 
 namespace Datashot\Util;
 
+use RuntimeException;
 use Symfony\Component\Process\Process;
 
 class Shell

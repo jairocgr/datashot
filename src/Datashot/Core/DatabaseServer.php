@@ -3,6 +3,7 @@
 namespace Datashot\Core;
 
 use Datashot\Lang\DataBag;
+use Datashot\Mysql\MysqlClient;
 use RuntimeException;
 
 class DatabaseServer
@@ -63,9 +64,9 @@ class DatabaseServer
         return $this->data->driver;
     }
 
-    public function getUnixSocket()
+    public function getSocket()
     {
-        return $this->data->get('unix_socket');
+        return $this->data->get('socket');
     }
 
     public function viaTcp()
@@ -76,25 +77,24 @@ class DatabaseServer
 
     private function validate()
     {
-        if ($this->data->notExists('host') && $this->data->notExists('unix_socket')) {
+        if ($this->data->notExists('host') && $this->data->notExists('socket')) {
             throw new RuntimeException(
                 "{$this->name} database must have a host or a unix socket!"
             );
         }
 
-        if ($this->data->notExists('unix_socket')) {
-            $this->data->regex('host', "/[a-z0-9\.\-\_]{2,255}/", "Invalid host :value for {$this->name} database");
-            $this->data->regex('port', '/[0-9]+/', "Invalid port :value for {$this->name} database");
-            $this->data->between('port', 1, 65535, "Invalid port number :value for {$this->name} database");
+        if ($this->viaTcp()) {
+            $this->data->checkIfNotEmptyString('host', ":key can not be empty {$this->name} database");
+            $this->data->regex('port', '/[0-9]+/', "Invalid :key :value for {$this->name} database");
+            $this->data->between('port', 1, 65535, "Invalid :key :value for {$this->name} database");
+        } else {
+            $this->data->checkIfString('socket', "Invalid :key :value for {$this->name} database");
         }
 
-        if ($this->data->notExists('host')) {
-            $this->data->regex('unix_socket', '/[a-z0-9\.\-\_\/]{2,255}/', "Invalid socket :value for {$this->name} database");
-        }
+        $this->data->required('username', "Param :key not found at {$this->name} database");
+        $this->data->required('driver', "Param :key not found at {$this->name} database");
 
-        $this->data->required([ 'username', 'driver' ], "Param :key not found at {$this->name} database");
-
-        $this->data->regex('username', "/.{2,255}/", "Invalid user :value for {$this->name} database");
-        $this->data->oneOf('driver', DatabaseServer::$SUPPORTED_DRIVERS, "Invalid driver :value for {$this->name} database");
+        $this->data->regex('username', "/.{2,255}/", "Invalid :key :value for {$this->name} database");
+        $this->data->oneOf('driver', DatabaseServer::$SUPPORTED_DRIVERS, "Invalid :key :value for {$this->name} database");
     }
 }

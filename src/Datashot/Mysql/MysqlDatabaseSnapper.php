@@ -46,8 +46,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->shell = Shell::getInstance();
 
-        $this->processEventHooks();
-
         $this->checkPreconditions();
     }
 
@@ -91,6 +89,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->publish(DatabaseSnapper::START_DUMPING);
 
+        $this->beforeHook();
+
         if ($this->dumpAll()) {
             # dumping database schema
             $this->dumpTablesDdl();
@@ -113,6 +113,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->snapped($start, $end);
 
+        $this->afterHook();
+
         $this->output->close();
     }
 
@@ -123,7 +125,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
                    "port={$this->conf->getPort()};" .
                    "dbname={$this->conf->getDatabaseName()}";
         } else {
-            $dsn = "mysql:unix_socket={$this->conf->getUnixSocket()};" .
+            $dsn = "mysql:unix_socket={$this->conf->getSocket()};" .
                    "dbname={$this->conf->getDatabaseName()}";
         }
 
@@ -589,43 +591,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         return $string;
     }
 
-    private function processEventHooks()
-    {
-        if ($this->conf->hasParam('before')) {
-
-            $before = $this->conf->get('before');
-
-            $this->bus->on(DatabaseSnapper::START_DUMPING, function () use ($before) {
-                if (is_callable($before)) {
-                    $result = call_user_func($before, $this);
-
-                    if (!empty($result)) {
-                        $this->append($this->resolveBoundedParams($result));
-                    }
-                }  else {
-                    $this->append($this->resolveBoundedParams(strval($before)));
-                }
-            });
-        }
-
-        if ($this->conf->hasParam('after')) {
-
-            $after = $this->conf->get('after');
-
-            $this->bus->on(DatabaseSnapper::END_DUMPING, function () use ($after) {
-                if (is_callable($after)) {
-                    $result = call_user_func($after, $this);
-
-                    if (!empty($result)) {
-                        $this->append($this->resolveBoundedParams($result));
-                    }
-                }  else {
-                    $this->append($this->resolveBoundedParams(strval($after)));
-                }
-            });
-        }
-    }
-
     private function beginStandardServerSettings()
     {
         $this->output->comment("Standard dump settings");
@@ -735,7 +700,9 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->publish(DatabaseSnapper::TABLE_DUMPED, [
             'time' => ($end - $start),
-            'rows' => $stmt->rowCount()
+            'via_php' => TRUE,
+            'rows' => $stmt->rowCount(),
+            'rows_transformed' => $this->conf->hasRowTransformer($table)
         ]);
     }
 
@@ -769,7 +736,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->output->close();
 
         $this->appendOutput("
-            /usr/bin/mysqldump --defaults-file={$this->connectionFile} \
+            mysqldump --defaults-file={$this->connectionFile} \
                 --no-create-info \
                 --no-tablespaces \
                 --skip-triggers \
@@ -838,7 +805,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
             $connectionParams = "host={$this->conf->getHost()}\n" .
                                 "port={$this->conf->getPort()}\n";
         } else {
-            $connectionParams = "socket={$this->conf->getUnixSocket()}\n";
+            $connectionParams = "socket={$this->conf->getSocket()}\n";
         }
 
         $res = fwrite($temp,
@@ -902,6 +869,12 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         if (!$this->commandExists('gzip')) {
             throw new RuntimeException(
                 "Command \"gzip\" not found"
+            );
+        }
+
+        if (!$this->commandExists('cat')) {
+            throw new RuntimeException(
+                "Command \"cat\" not found"
             );
         }
     }
@@ -977,14 +950,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     }
 
     /**
-     * @return mixed
-     */
-    function getr($key)
-    {
-        return $this->conf->getr($key);
-    }
-
-    /**
      * @retun PDOStatement
      */
     function query($sql, $args = [])
@@ -1053,7 +1018,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
      */
     function getDatabaseSocket()
     {
-        return $this->conf->getUnixSocket();
+        return $this->conf->getSocket();
     }
 
     /**
@@ -1062,5 +1027,51 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     function getDatabasePassword()
     {
         return $this->conf->getDatabasePassword();
+    }
+
+    private function beforeHook()
+    {
+        if ($this->conf->hasParam('before')) {
+
+            $before = $this->conf->get('before');
+
+            if (is_callable($before)) {
+                $result = call_user_func($before, $this);
+
+                if (!empty($result)) {
+                    $this->append($this->resolveBoundedParams($result));
+                }
+            } else {
+                $this->append($this->resolveBoundedParams(strval($before)));
+            }
+        }
+    }
+
+    private function afterHook()
+    {
+        if ($this->conf->hasParam('after')) {
+
+            $after = $this->conf->get('after');
+
+            if (is_callable($after)) {
+                $result = call_user_func($after, $this);
+
+                if (!empty($result)) {
+                    $this->append($this->resolveBoundedParams($result));
+                }
+            } else {
+                $this->append($this->resolveBoundedParams(strval($after)));
+            }
+        }
+    }
+
+    public function puts($string)
+    {
+        $this->bus->publish('output', $string);
+    }
+
+    function set($key, $value)
+    {
+        return $this->conf->set($key, $value);
     }
 }
