@@ -247,6 +247,10 @@ class DatashotTest extends TestCase
                        > {$this->ASSETS_DIR}/snapped.gunzip
             ");
 
+            $this->assertTableExists([
+                '_before_hook'
+            ]);
+
             $snapped = file_get_contents("{$this->ASSETS_DIR}/snapped.gunzip");
         }
 

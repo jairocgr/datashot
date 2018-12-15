@@ -362,4 +362,91 @@ class DataBag implements ArrayAccess, Iterator
             ]));
         }
     }
+
+    public function checkIfIsACollectionOf($key, $expectedType)
+    {
+        $values = $this->get($key);
+
+        foreach ($values as $index => $value) {
+
+            $type = gettype($value);
+
+            if ($type == 'object') {
+
+                if ($value instanceof $expectedType) {
+                    // ok
+                } else {
+                    $class = get_class($value);
+
+                    throw new RuntimeException(
+                        "{$key}[{$index}] must a instance of {$expectedType}, " .
+                        "\"{$class}\" instead."
+                    );
+                }
+
+            } elseif ($type != $expectedType) {
+                throw new RuntimeException(
+                    "{$key}[{$index}] must a {$expectedType}, {$type} instead!"
+                );
+            }
+        }
+    }
+
+    public function checkIfIs($key, $expectedType, $errmsg = ":key must by a :expected_type, :given_type instead!")
+    {
+        if (!$this->is($key, $expectedType)) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key,
+                'expected_type' => $expectedType,
+                'given_type' => $this->valueToString($this->get($key))
+            ]));
+        }
+    }
+
+    public function checkIfNotEmpty($key, $errmsg = ":key must not be empty!")
+    {
+        $value = $this->get($key, NULL);
+
+        if (empty($value)) {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key,
+                'value' => $this->valueToString($value)
+            ]));
+        }
+    }
+
+    public function checkIfTransversable($key, $errmsg = ":key must be a array")
+    {
+        $value = $this->get($key, NULL);
+
+        if (is_array($value) || ($value instanceof \Traversable)) {
+            // we are solid
+        } else {
+            throw new RuntimeException($this->interpolate($errmsg, [
+                'key' => $key,
+                'value' => $this->valueToString($value)
+            ]));
+        }
+    }
+
+    public function is($key, $expectedType)
+    {
+        $value = $this->get($key);
+
+        $type = gettype($value);
+
+        if ($type == 'object') {
+
+            if ($value instanceof $expectedType) {
+                return TRUE;
+            } else {
+                return FALSE;
+            }
+
+        } elseif ($type != $expectedType) {
+            return FALSE;
+        }
+
+        return TRUE;
+    }
 }

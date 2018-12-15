@@ -58,18 +58,20 @@ class Configuration
 
     private function parseSnappers()
     {
-        $snappers = $this->data->getr("snappers");
+        $this->data->checkIfTransversable("snappers");
+        $this->data->checkIfIsACollectionOf("snappers", DataBag::class);
 
-        if (empty($snappers)) {
-            throw new RuntimeException(
-                "Snappers can not be empty!"
-            );
-        }
+        $snappers = $this->data->get("snappers");
 
         foreach ($snappers as $snapperName => $data) {
 
             if ($data->exists('extends')) {
-                $base = $this->data->get("snappers.{$data->extends}", new DataBag());
+
+                $this->data->checkIfIs("snappers.{$data->extends}", DataBag::class,
+                    "{$snapperName} references a invalid snapper \"{$data->extends}\""
+                );
+
+                $base = $this->data->get("snappers.{$data->extends}");
 
                 $data = new DataBag(array_replace_recursive(
                     $base->toArray(),
@@ -95,11 +97,23 @@ class Configuration
 
     private function parseSnapper($snapperName, DataBag $data)
     {
-        if ($data->exists('database_server') && $data->isString('database_server')) {
+        $data->checkIfNotEmpty('database_server', "{$snapperName} must have a :key!");
+
+        if ($data->isString('database_server')) {
 
             $serverName = $data->get('database_server');
 
             $data->set('database_server', $this->getDatabase($serverName));
+
+        } elseif ($data->is('database_server', DataBag::class)) {
+            $data->set('database_server', new DatabaseServer(
+                "$snapperName/server",
+                $data->get('database_server')
+            ));
+        } else {
+            throw new RuntimeException(
+                "Invalid database_server for {$snapperName}"
+            );
         }
 
         return new SnapperConfiguration($snapperName, $data);

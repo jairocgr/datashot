@@ -1,176 +1,200 @@
 <?php return [
 
-    'snappers' => [
+  'snappers' => [
 
-        'datashot_sql' => [
+    'datashot' => [
 
-            'extends' => 'datashot',
+      // Reference the
+      'database_server' => 'workbench1',
 
-            'compress' => FALSE,
-        ],
+      'database_name'   => 'datashot',
 
-        'datashot' => [
+      'database_charset'   => 'utf8',
+      'database_collation' => 'utf8_general_ci',
 
-            'triggers'  => TRUE,
-            'routines'  => TRUE,
+      'output_dir' => realpath(__DIR__ . '/tests/assets'),
+      'output_file' => 'snapped',
 
-            'output_file' => 'snapped',
+      // If you want to snap the rows only
+      // 'data_only' =>TRUE,
 
-            // generic where bring only 2 rows per table
-            'where' => 'true order by 1 limit 2',
+      // If you wanna dump only the ddl, triggers, functions, etc.
+      // 'no_data' => TRUE,
 
-            'database_server' => 'workbench1',
+      // Custom made property
+      'excluded_users' => [ 'usr103' ],
 
-            'database_name'   => 'datashot',
+      // The custom made cutoff property will be evaluate by the
+      // return the follow closure
+      'cutoff' => function (\Datashot\Core\DatabaseSnapper $snapper) {
 
-            'database_charset'   => 'utf8',
-            'database_collation' => 'utf8_general_ci',
+        $stmt = $snapper->query("
+          SELECT * FROM logs ORDER BY created_at DESC
+          LIMIT 1
+        ");
 
-            'output_dir' => realpath(__DIR__ . '/tests/assets'),
+        $newest = $stmt->fetch();
 
-            // Custom made property
-            'excluded_users' => [ 'usr103' ],
+        // Print message to console (<b> to bold output)
+        $snapper->puts("Newest log <b>{$newest->created_at}</b>");
 
-            // The custom made cutoff property will be evaluate by the
-            // return the follow closure
-            'cutoff' => function (\Datashot\Core\DatabaseSnapper $snapper) {
+        $newest = new DateTime($newest->created_at);
+        $months = DateInterval::createFromDateString('1 months');
 
-                $stmt = $snapper->query("
-                  SELECT * FROM logs ORDER BY created_at DESC
-                    LIMIT 1
-                ");
+        $cutoff = $newest->sub($months);
 
-                $newest = $stmt->fetch();
+        // Move de cutoff date to the first day of the month
+        $cutoff = $cutoff->format("Y-m");
+        $cutoff = "{$cutoff}-01 00:00:00";
 
-                // Print message to console (<b> to bold output)
-                $snapper->puts("Newest log <b>{$newest->created_at}</b>");
+        $snapper->puts("Cutoff date <b>{$cutoff}</b>");
 
-                $newest = new DateTime($newest->created_at);
-                $months = DateInterval::createFromDateString('1 months');
+        return $cutoff;
+      },
 
-                $cutoff = $newest->sub($months);
+      // Optional generic where (bring only 2 rows per table)
+      'where' => 'true order by 1 limit 2',
 
-                // Move de cutoff date to the first day of the month
-                $cutoff = $cutoff->format("Y-m");
-                $cutoff = "{$cutoff}-01 00:00:00";
+      'wheres' => [
 
-                $snapper->puts("Cutoff date <b>{$cutoff}</b>");
+        // Interpolete parameter to where clause
+        'logs' => "created_at > '{cutoff}'",
 
-                return $cutoff;
-            },
+        'users' => function (\Datashot\Core\DatabaseSnapper $snapper) {
 
-            'wheres' => [
+          // Get parameter
+          $excluded = $snapper->get('excluded_users');
+          $selected = [];
 
-                // Interpolete parameter to where clause
-                'logs' => "created_at > '{cutoff}'",
+          $stmt = $snapper->query("SELECT login FROM users WHERE active IS TRUE");
 
-                'users' => function (\Datashot\Core\DatabaseSnapper $snapper) {
+          foreach ($stmt->fetchAll() as $res) {
+            $selected[] = $res->login;
+          }
 
-                    // Get parameter
-                    $excluded = $snapper->get('excluded_users');
-                    $selected = [];
+          $selected = "'" . implode("', '", $selected) . "'";
+          $excluded = "'" . implode("', '", $excluded) . "'";
 
-                    $stmt = $snapper->query("SELECT login FROM users WHERE active IS TRUE");
+          return "login IN ({$selected}) and ".
+                 "login NOT IN ({$excluded})";
+        },
+      ],
 
-                    foreach ($stmt->fetchAll() as $res) {
-                        $selected[] = $res->login;
-                    }
+      'row_transformers' => [
+        'users' => function ($row) {
 
-                    $selected = "'" . implode("', '", $selected) . "'";
-                    $excluded = "'" . implode("', '", $excluded) . "'";
+          // hidding user phone numbers
+          $row->phone = "+55 67 99999-1000";
 
-                    return "login IN ({$selected}) and ".
-                           "login NOT IN ({$excluded})";
-                }
-            ],
+          return $row;
+        },
 
-            'row_transformers' => [
-                'users' => function ($row) {
+        'hash' => function ($row) {
 
-                    // hidding user phone numbers
-                    $row->phone = "+55 67 99999-1000";
+          $row->value = "{$row->k}:value";
 
-                    return $row;
-                },
+          return $row;
+        }
+      ],
 
-                'hash' => function ($row) {
+      // Event-based hook
+      'before' => function (\Datashot\Core\DatabaseSnapper $snapper) {
 
-                    $row->value = "{$row->k}:value";
+        $snapper->append("SELECT '[Before hook]...';");
 
-                    return $row;
-                }
-            ],
+        return "-- [Before hook comment]\n";
+      },
 
-            // Event-based hook
-            'before' => function (\Datashot\Core\DatabaseSnapper $snapper) {
-                $snapper->append("SELECT '[Before hook]...';");
+      'after' => function (\Datashot\Core\DatabaseSnapper $snapper) {
+        $snapper->append("
 
-                return "-- [Before hook comment]\n";
-            },
+          -- Set default user password
+          SELECT 'Setting user password to default_pw...';
+          UPDATE users SET password = sha1('default_pw');
 
-            'after' => function (\Datashot\Core\DatabaseSnapper $snapper) {
-                $snapper->append("
+        ");
 
-                  -- Set default user password
-                  SELECT 'Setting user password to default_pw...';
-                  UPDATE users SET password = sha1('default_pw');
-
-                ");
-
-                return "-- [After hook comment]\n";
-            }
-        ]
+        return "-- [After hook comment]\n";
+      }
     ],
 
-    'database_servers' => [
-        'workbench1' => [
-            'driver'    => 'mysql',
+    'datashot_sql' => [
+      // Inherits all settings
+      'extends' => 'datashot',
 
-            'socket'    => getenv('WORKBENCH_SOCKET'),
+      // Override inherited settings
+      'compress' => FALSE,
 
-            'host'      => getenv('WORKBENCH_HOST'),
-            'port'      => getenv('WORKBENCH_PORT'),
+      // Database server
+      'database_server' => [
+        'driver'  => 'mysql',
 
-            'username'  => getenv('WORKBENCH_USER'),
-            'password'  => getenv('WORKBENCH_PASSWORD')
-        ]
-    ],
+        'socket'  => getenv('WORKBENCH_SOCKET'),
 
-    'restoring_settings' => [
-        'datashot' => [
-            'workbench1' => [
-                'database_name' => 'restored_datashot',
-            ]
-        ],
-        'datashot_sql' => [
-            'workbench1' => [
-                'database_name' => 'restored_datashot_sql',
+        'host'    => getenv('WORKBENCH_HOST'),
+        'port'    => getenv('WORKBENCH_PORT'),
 
-                'before' => function (\Datashot\Core\SnapRestorer $restorer) {
-
-                    // You can use the restorer api to query and set values
-                    $value = $restorer->query("SHOW VARIABLES LIKE 'max_allowed_packet'")->fetchColumn(1);
-                    $restorer->set('old_packet_size', $value);
-
-                    // You can use the before hook to setup the database server
-                    $restorer->execute("SET GLOBAL max_allowed_packet = 1073741824");
-
-                    return "CREATE TABLE _test_before_hook (
-                      id integer not null auto_increment primary key,
-                      handle varchar(24) not null
-                    )";
-                },
-
-                'after' => function (\Datashot\Core\SnapRestorer $restorer) {
-
-                    $old = $restorer->get('old_packet_size');
-
-                    // You can use the after hook to rollback settings
-                    $restorer->execute("SET GLOBAL max_allowed_packet = {$old}");
-
-                    $restorer->execute("UPDATE users SET password = sha1('after')");
-                }
-            ]
-        ]
+        'username'  => getenv('WORKBENCH_USER'),
+        'password'  => getenv('WORKBENCH_PASSWORD')
+      ]
     ]
+  ],
+
+  'database_servers' => [
+    'workbench1' => [
+      'driver'  => 'mysql',
+
+      'socket'  => getenv('WORKBENCH_SOCKET'),
+
+      'host'    => getenv('WORKBENCH_HOST'),
+      'port'    => getenv('WORKBENCH_PORT'),
+
+      'username'  => getenv('WORKBENCH_USER'),
+      'password'  => getenv('WORKBENCH_PASSWORD')
+    ]
+  ],
+
+  'restoring_settings' => [
+    'datashot' => [
+      'workbench1' => [
+        'database_name' => 'restored_datashot',
+
+        'before' => "CREATE TABLE _before_hook (
+            id integer not null auto_increment primary key,
+            handle varchar(24) not null
+        )",
+      ]
+    ],
+    'datashot_sql' => [
+      'workbench1' => [
+        'database_name' => 'restored_datashot_sql',
+
+        'before' => function (\Datashot\Core\SnapRestorer $restorer) {
+
+          // You can use the restorer api to query and set values
+          $value = $restorer->query("SHOW VARIABLES LIKE 'max_allowed_packet'")->fetchColumn(1);
+          $restorer->set('old_packet_size', $value);
+
+          // You can use the before hook to setup the database server
+          $restorer->execute("SET GLOBAL max_allowed_packet = 1073741824");
+
+          return "CREATE TABLE _test_before_hook (
+            id integer not null auto_increment primary key,
+            handle varchar(24) not null
+          )";
+        },
+
+        'after' => function (\Datashot\Core\SnapRestorer $restorer) {
+
+          // Retrieve previous setted parameter on the before hook
+          $old = $restorer->get('old_packet_size');
+
+          // You can use the after hook to rollback settings
+          $restorer->execute("SET GLOBAL max_allowed_packet = {$old}");
+
+          $restorer->execute("UPDATE users SET password = sha1('after')");
+        }
+      ]
+    ]
+  ]
 ];

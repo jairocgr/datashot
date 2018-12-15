@@ -627,6 +627,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function dumpActions()
     {
         $this->output->comment("Restoring actions");
+
         $this->dumpTriggers();
         $this->dumpProcedures();
         $this->dumpFunctions();

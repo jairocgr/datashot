@@ -126,4 +126,18 @@ class DataBagTest extends TestCase
         $this->assertEquals('val1', $databag->param1);
         $this->assertEquals(2, $databag->param2);
     }
+
+    public function testExists() {
+        $this->assertTrue($this->data->exists('active'));
+        $this->assertFalse($this->data->exists('active::'));
+    }
+
+    public function testEmpty() {
+
+        $this->data->checkIfNotEmpty('latitude');
+
+        $this->expectException(RuntimeException::class);
+
+        $this->data->checkIfNotEmpty('missing_key');
+    }
 }

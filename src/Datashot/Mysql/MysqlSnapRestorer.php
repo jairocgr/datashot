@@ -40,11 +40,6 @@ class MysqlSnapRestorer implements SnapRestorer
      */
     private $shell;
 
-    /**
-     * @var MysqlClient
-     */
-    private $client;
-
     public function __construct(EventBus $bus, RestoringSettings $config)
     {
         $this->bus = $bus;
