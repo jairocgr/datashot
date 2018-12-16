@@ -43,13 +43,7 @@ class Configuration
 
     private function parseDatabaseServers()
     {
-        $servers = $this->data->getr('database_servers');
-
-        if (empty($servers)) {
-            throw new RuntimeException(
-                "Database servers can not be empty!"
-            );
-        }
+        $servers = $this->data->get('database_servers', []);
 
         foreach ($servers as $server => $config) {
             $this->databaseServers[$server] = new DatabaseServer($server, $config);
@@ -110,6 +104,8 @@ class Configuration
                 "$snapperName/server",
                 $data->get('database_server')
             ));
+        } elseif ($data->is('database_server', DatabaseServer::class)) {
+            // Already setted
         } else {
             throw new RuntimeException(
                 "Invalid database_server for {$snapperName}"
@@ -150,11 +146,7 @@ class Configuration
 
     private function parseRestoringSettings()
     {
-        if ($this->data->notExists('restoring_settings')) {
-            return;
-        }
-
-        $snapers = $this->data->get('restoring_settings');
+        $snapers = $this->data->get('restoring_settings', []);
 
         foreach ($snapers as $snaper => $databases) {
             foreach ($databases as $database => $data) {

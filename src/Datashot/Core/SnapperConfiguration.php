@@ -42,7 +42,7 @@ class SnapperConfiguration
      */
     public function getOutputFileName()
     {
-        return $this->data->get('output_file', $this->name) .
+        return $this->data->get('output_file_name', $this->name) .
               ($this->compressOutput() ? '.gz' : '.sql');
     }
 
@@ -177,9 +177,9 @@ class SnapperConfiguration
             $this->data->checkIfString('output_dir', "Invalid :key :value for {$this->name} snapper!");
         }
 
-        if ($this->data->exists('output_file')) {
-            $this->data->checkIfString('output_file', "Invalid :key :value for {$this->name} snapper!");
-            $this->data->checkIfNotEmptyString('output_file', ":key can not be empty in {$this->name} snapper!");
+        if ($this->data->exists('output_file_name')) {
+            $this->data->checkIfString('output_file_name', "Invalid :key :value for {$this->name} snapper!");
+            $this->data->checkIfNotEmptyString('output_file_name', ":key can not be empty in {$this->name} snapper!");
         }
 
         if ($this->data->exists('database_name')) {
