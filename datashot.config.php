@@ -162,6 +162,7 @@
 
   'database_servers' => [
     'workbench1' => [
+      // For now, only mysql is supported
       'driver'  => 'mysql',
 
       // If socket property is setted, then it will be use instead of tcp/ip
