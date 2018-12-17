@@ -3,7 +3,6 @@
 namespace Datashot\Console\Command;
 
 use Datashot\Core\DatabaseSnapper;
-use Datashot\Core\SnapRestorer;
 
 class SnapCommand extends BaseCommand
 {
