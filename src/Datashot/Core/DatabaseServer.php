@@ -3,7 +3,6 @@
 namespace Datashot\Core;
 
 use Datashot\Lang\DataBag;
-use Datashot\Mysql\MysqlClient;
 use RuntimeException;
 
 class DatabaseServer

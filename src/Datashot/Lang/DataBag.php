@@ -73,6 +73,10 @@ class DataBag implements ArrayAccess, Iterator
             $pointer = $pointer[$key];
         }
 
+        if (is_string($pointer)) {
+            return $this->resolveBoundedParams($pointer);
+        }
+
         return $pointer;
     }
 
@@ -447,5 +451,36 @@ class DataBag implements ArrayAccess, Iterator
         }
 
         return TRUE;
+    }
+
+    private function resolveBoundedParams($string)
+    {
+        foreach ($this->extractBoundedParams($string) as $param) {
+
+            $value = $this->get($param, NULL);
+
+            if (is_scalar($value)) {
+                $string = str_replace("{{$param}}", $value, $string);
+            }
+        }
+
+        return $string;
+    }
+
+    private function extractBoundedParams($string)
+    {
+        $matches = [];
+        $params = [];
+
+        preg_match_all("/\{[^\}]+\}/", $string, $matches);
+
+        foreach ($matches[0] as $match) {
+            $match = str_replace('{', '', $match);
+            $match = str_replace('}', '', $match);
+
+            $params[] = $match;
+        }
+
+        return $params;
     }
 }

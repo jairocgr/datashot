@@ -48,6 +48,10 @@ class DataBagTest extends TestCase
                     'password'  => 'FsHEpLd2+LtQjTs+ZnJ+jA=='
                 ]
             ],
+
+            'username' => '{database_servers.workbench1.username}',
+            'rows' => '{row_count}',
+            'server' => '{database_servers}'
         ]);
     }
 
@@ -71,6 +75,12 @@ class DataBagTest extends TestCase
         $this->assertEquals('admin', $this->data->{'database_servers.workbench1'}->username);
 
         $this->assertEquals('default_value', $this->data->get('missing_key', 'default_value'));
+    }
+
+    public function testResolveReferences() {
+        $this->assertEquals('admin', $this->data->username);
+        $this->assertEquals('232432', $this->data->rows);
+        $this->assertEquals('{database_servers}', $this->data->server);
     }
 
     public function testDotSyntax()
