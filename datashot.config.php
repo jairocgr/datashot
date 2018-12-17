@@ -253,16 +253,20 @@
       'commons3' => [
         // S3 bucket to upload to
         'bucket' => getenv('S3_BUCKET'),
+
         // Target folder inside de s3 bucket
-        'target_folder' => 'snaps'
+        'target_folder' => 'snaps/datashot'
+        # File name will be same as the snapper's output_file_name
       ]
     ],
     'datashot_sql' => [
       'commons3' => [
         // S3 bucket to upload to
         'bucket' => getenv('S3_BUCKET'),
+
         // Target folder inside de s3 bucket
-        'target_folder' => 'snaps'
+        'target_folder' => 'snaps/datashot'
+        # File name will be same as the snapper's output_file_name
       ]
     ]
   ]
