@@ -3,7 +3,7 @@
 namespace Datashot\Console\Command;
 
 use Datashot\Core\SnapRestorer;
-use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Process\Process;
 
 class RestoreCommand extends BaseCommand
@@ -16,7 +16,7 @@ class RestoreCommand extends BaseCommand
 
              ->addOption(
                  'target', 't',
-                 InputArgument::REQUIRED | InputArgument::IS_ARRAY,
+                 InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED,
                  'Database to restore the snaps'
              );
     }
@@ -32,13 +32,7 @@ class RestoreCommand extends BaseCommand
 
     private function getTargets()
     {
-        $targets = $this->input->getOption('target');
-
-        if (is_string($targets)) {
-            return [ $targets ];
-        }
-
-        return $targets;
+        return $this->input->getOption('target');
     }
 
     protected function setupListeners()
