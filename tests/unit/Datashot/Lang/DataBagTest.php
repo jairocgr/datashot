@@ -73,6 +73,32 @@ class DataBagTest extends TestCase
         $this->assertEquals('default_value', $this->data->get('missing_key', 'default_value'));
     }
 
+    public function testDotSyntax()
+    {
+        $this->assertEquals('tcp://disk', $this->data->get('repositories.disk.host'));
+
+        $this->data->set('repositories.disk.host', '[new_value]');
+        $this->assertEquals('[new_value]', $this->data->get('repositories.disk.host'));
+
+        $this->data['repositories.disk.host'] = '[other_value]';
+        $this->assertEquals('[other_value]', $this->data->get('repositories.disk.host'));
+
+        $this->data['repositories']['disk']['host'] = '[array]';
+        $this->assertEquals('[array]', $this->data->get('repositories.disk.host'));
+
+        $this->data['repositories']['disk']['port'] = 22;
+        $this->assertEquals(22, $this->data->get('repositories.disk.port'));
+        $this->assertEquals(22, $this->data['repositories']['disk']['port']);
+    }
+
+    public function testGetSetArraySyntax()
+    {
+        $this->assertEquals(232432, $this->data['row_count']);
+
+        $this->data['row_count'] = 300;
+        $this->assertEquals(300, $this->data['row_count']);
+    }
+
     public function testIterator()
     {
         $iterations = 0;
@@ -139,5 +165,25 @@ class DataBagTest extends TestCase
         $this->expectException(RuntimeException::class);
 
         $this->data->checkIfNotEmpty('missing_key');
+    }
+
+    public function testSetEmptyKey()
+    {
+        $this->expectException(RuntimeException::class);
+        $this->data->set('', 'value');
+    }
+
+    public function testGetEmptyKey()
+    {
+        $this->expectException(RuntimeException::class);
+        $this->data->get('');
+    }
+
+    public function testAppendValue()
+    {
+        $bag = new DataBag();
+        $bag[] = 'value';
+
+        $this->assertEquals('value', ($bag->toArray())[0]);
     }
 }

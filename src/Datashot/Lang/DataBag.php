@@ -48,15 +48,19 @@ class DataBag implements ArrayAccess, Iterator
                 $this->unsetKey($key, $value);
             }
         } else {
-            $this->lookupAndUnset($params[0]);
+            $this->lookupAndSet($params[0], NULL);
         }
     }
 
     private function lookup($configPath)
     {
+        if (empty($configPath)) {
+            throw new RuntimeException("Invalid empty key!");
+        }
+
         $keys = explode('.', $configPath);
 
-        $pointer = &$this->data;
+        $pointer = $this->data;
 
         foreach ($keys as $key) {
 
@@ -66,7 +70,7 @@ class DataBag implements ArrayAccess, Iterator
                 );
             }
 
-            $pointer = &$pointer[$key];
+            $pointer = $pointer[$key];
         }
 
         return $pointer;
@@ -74,7 +78,15 @@ class DataBag implements ArrayAccess, Iterator
 
     private function lookupAndSet($configPath, $value)
     {
+        if (empty($configPath)) {
+            throw new RuntimeException("Invalid empty key!");
+        }
+
         $keys = explode('.', $configPath);
+
+        $lastKey = $keys[count($keys) - 1];
+
+        unset($keys[count($keys) - 1]);
 
         $pointer = &$this->data;
 
@@ -82,20 +94,7 @@ class DataBag implements ArrayAccess, Iterator
             $pointer = &$pointer[$key];
         }
 
-        $pointer = $this->isAssociativeArray($value) ? new DataBag($value) : $value;
-    }
-
-    private function lookupAndUnset($configPath)
-    {
-        $keys = explode('.', $configPath);
-
-        $pointer = &$this->data;
-
-        foreach ($keys as $key) {
-            $pointer = &$pointer[$key];
-        }
-
-        unset($pointer);
+        $pointer[$lastKey] = $this->isAssociativeArray($value) ? new DataBag($value) : $value;
     }
 
     public function __get($name)
