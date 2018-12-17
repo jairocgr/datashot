@@ -1,7 +1,7 @@
 <?php
 
 $files = [
-    __DIR__ . '/../../../autoload.php', // composer dependency
+    __DIR__ . '/../../autoload.php', // composer dependency
     __DIR__ . '/vendor/autoload.php', // stand-alone package
 ];
 
