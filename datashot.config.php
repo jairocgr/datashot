@@ -232,6 +232,38 @@
           $restorer->execute("UPDATE users SET password = sha1('after')");
         }
       ]
+    ],
+  ],
+
+  // Repositories wich the snapshots could be uploaded to
+  'repositories' => [
+    'commons3' => [
+      // For now, only Amazon s3 is supported
+      'driver' => 's3',
+      'region' => 'us-east-1',
+      'credentials' => [
+        'key'    => getenv('S3_KEY'),
+        'secret' => getenv('S3_SECRET')
+      ]
+    ]
+  ],
+
+  'upload_settings' => [
+    'datashot' => [
+      'commons3' => [
+        // S3 bucket to upload to
+        'bucket' => getenv('S3_BUCKET'),
+        // Target folder inside de s3 bucket
+        'target_folder' => 'snaps'
+      ]
+    ],
+    'datashot_sql' => [
+      'commons3' => [
+        // S3 bucket to upload to
+        'bucket' => getenv('S3_BUCKET'),
+        // Target folder inside de s3 bucket
+        'target_folder' => 'snaps'
+      ]
     ]
   ]
 ];

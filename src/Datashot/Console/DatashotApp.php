@@ -4,6 +4,7 @@ namespace Datashot\Console;
 
 use Datashot\Console\Command\RestoreCommand;
 use Datashot\Console\Command\SnapCommand;
+use Datashot\Console\Command\UploadCommand;
 use Datashot\Datashot;
 use Symfony\Component\Console\Application;
 
@@ -21,7 +22,8 @@ class DatashotApp extends Application
 
         $this->addCommands([
             new SnapCommand(),
-            new RestoreCommand()
+            new RestoreCommand(),
+            new UploadCommand()
         ]);
     }
 }

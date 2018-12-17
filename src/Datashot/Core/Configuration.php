@@ -27,6 +27,16 @@ class Configuration
      */
     private $restoringSettings = [];
 
+    /**
+     * @var Repository[]
+     */
+    private $repositories = [];
+
+    /**
+     * @var UploadSettings[]
+     */
+    private $uploadSettings = [];
+
     public function __construct(array $data)
     {
         $this->parseConfiguration($data);
@@ -39,6 +49,8 @@ class Configuration
         $this->parseDatabaseServers();
         $this->parseSnappers();
         $this->parseRestoringSettings();
+        $this->parseRepositories();
+        $this->parseUploadSettings();
     }
 
     private function parseDatabaseServers()
@@ -87,6 +99,18 @@ class Configuration
         }
 
         return $this->databaseServers[$name];
+    }
+
+    /**
+     * @return Repository
+     */
+    public function getRepository($name)
+    {
+        if (!isset($this->repositories[$name])) {
+            throw new RuntimeException("Repositories \"{$name}\" not fount!");
+        }
+
+        return $this->repositories[$name];
     }
 
     private function parseSnapper($snapperName, DataBag $data)
@@ -158,6 +182,50 @@ class Configuration
                 $this->restoringSettings[$snaper][$database] = new RestoringSettings(
                     $this->getSnapper($snaper),
                     $this->getDatabase($database),
+                    $data
+                );
+
+            }
+        }
+    }
+
+    /**
+     * @return UploadSettings
+     */
+    public function getUploadSettings($snapper, $target)
+    {
+        if (!isset($this->uploadSettings[$snapper][$target])) {
+            throw new RuntimeException(
+                "Upload settings not found for \"{$snapper}\" to \"{$target}\" repository!"
+            );
+        }
+
+        return $this->uploadSettings[$snapper][$target];
+    }
+
+    private function parseRepositories()
+    {
+        $repositories = $this->data->get('repositories', []);
+
+        foreach ($repositories as $repo => $config) {
+            $this->repositories[$repo] = new Repository($repo, $config);
+        }
+    }
+
+    private function parseUploadSettings()
+    {
+        $uploads = $this->data->get('upload_settings', []);
+
+        foreach ($uploads as $snaper => $repositories) {
+            foreach ($repositories as $repo => $data) {
+
+                if (!isset($this->uploadSettings[$snaper])) {
+                    $this->uploadSettings[$snaper] = [];
+                }
+
+                $this->uploadSettings[$snaper][$repo] = new UploadSettings(
+                    $this->getSnapper($snaper),
+                    $this->getRepository($repo),
                     $data
                 );
 

@@ -5,8 +5,10 @@ namespace Datashot;
 use Datashot\Core\Configuration;
 use Datashot\Core\DatabaseSnapper;
 use Datashot\Core\SnapRestorer;
+use Datashot\Core\SnapUploader;
 use Datashot\Mysql\MysqlDatabaseSnapper;
 use Datashot\Mysql\MysqlSnapRestorer;
+use Datashot\S3\S3SnapUploader;
 use Datashot\Util\EventBus;
 use RuntimeException;
 
@@ -101,7 +103,34 @@ class Datashot
                     "Insuported \"{$driver}\" database driver"
                 );
         }
+    }
 
+    public function upload($snapper, $target)
+    {
+        $restore = $this->buildUploader($snapper, $target);
 
+        $restore->upload();
+    }
+
+    /**
+     * @return SnapUploader
+     */
+    private function buildUploader($snapper, $target)
+    {
+        $settings = $this->config->getUploadSettings($snapper, $target);
+
+        $driver = $settings->getDriver();
+
+        switch ($driver) {
+            case 's3':
+
+                return new S3SnapUploader($this->bus, $settings);
+
+                break;
+            default:
+                throw new RuntimeException(
+                    "Insuported \"{$driver}\" repository driver"
+                );
+        }
     }
 }
