@@ -47,7 +47,9 @@ class UploadSettings
      */
     public function getTargetFolder()
     {
-        return $this->data->getr('target_folder');
+        $target = $this->targetRepository->get('target_folder', '/');
+
+        return $this->data->get('target_folder', $target);
     }
 
     /**

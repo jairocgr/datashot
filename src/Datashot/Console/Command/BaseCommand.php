@@ -2,9 +2,6 @@
 
 namespace Datashot\Console\Command;
 
-use Datashot\Core\DatabaseSnapper;
-use Datashot\Core\SnapperConfiguration;
-use Datashot\Core\SnapRestorer;
 use Datashot\Datashot;
 use Datashot\Util\ConsoleOutput;
 use Datashot\Util\EventBus;
@@ -14,7 +11,6 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Process\Process;
 
 abstract class BaseCommand extends Command
 {
@@ -66,6 +62,13 @@ abstract class BaseCommand extends Command
                 InputOption::VALUE_OPTIONAL,
                 'Configuration file',
                 'datashot.config.php'
+             )
+
+             ->addOption(
+                 'set',
+                 's',
+                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
+                 'Set parameter'
              )
 
              ->addArgument(
@@ -193,4 +196,27 @@ abstract class BaseCommand extends Command
     }
 
     protected function setupListeners() {}
+
+    private function parseParams()
+    {
+        $params = [];
+
+        foreach ($this->input->getOption('set') as $param) {
+
+            if (preg_match('/[^\s]+\=[^\s]+/', $param) !== 1) {
+                throw new RuntimeException("Invalid parameter \"{$param}\"!");
+            }
+
+            $pieces = explode('=', $param);
+
+            $key = trim($pieces[0]);
+            $value = trim($pieces[1]);
+
+            $this->console->puts("{$key}: \"{$value}\"");
+
+            $params[$key] = $value;
+        }
+
+        return $params;
+    }
 }

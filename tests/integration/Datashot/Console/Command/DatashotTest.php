@@ -131,7 +131,7 @@ class DatashotTest extends TestCase
 
             '--config' => "{$this->ROOT_DIR}/datashot.config.php",
 
-            '--target' => 'workbench1'
+            '--target' => [ 'workbench1' ]
         ]);
 
         // the output of the command in the console

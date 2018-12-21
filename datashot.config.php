@@ -176,6 +176,18 @@
 
       'username'  => getenv('WORKBENCH_USER'),
       'password'  => getenv('WORKBENCH_PASSWORD')
+    ],
+
+    'docker_mysql56' => [
+      'driver'    => 'mysql',
+
+      'socket'    => getenv('DOCKER_MYSQL56_SOCKET'),
+
+      'host'      => getenv('DOCKER_MYSQL56_HOST'),
+      'port'      => getenv('DOCKER_MYSQL56_PORT'),
+
+      'username'  => getenv('DOCKER_MYSQL56_USER'),
+      'password'  => getenv('DOCKER_MYSQL56_PASSWORD')
     ]
   ],
 
@@ -241,6 +253,8 @@
       // For now, only Amazon s3 is supported
       'driver' => 's3',
       'region' => 'us-east-1',
+      'bucket' => getenv('S3_BUCKET'),
+      'target_folder' => 'up',
       'credentials' => [
         'key'    => getenv('S3_KEY'),
         'secret' => getenv('S3_SECRET')

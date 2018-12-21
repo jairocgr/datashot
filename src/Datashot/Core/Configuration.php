@@ -160,8 +160,15 @@ class Configuration
     public function getRestoringSettings($snapper, $target)
     {
         if (!isset($this->restoringSettings[$snapper][$target])) {
-            throw new RuntimeException(
-                "Restoring not found for \"{$snapper}\" to \"{$target}\" database!"
+
+            if (!isset($this->restoringSettings[$snapper])) {
+                $this->restoringSettings[$snapper] = [];
+            }
+
+            $this->restoringSettings[$snapper][$target] = new RestoringSettings(
+                $this->getSnapper($snapper),
+                $this->getDatabase($target),
+                new DataBag()
             );
         }
 
@@ -195,8 +202,15 @@ class Configuration
     public function getUploadSettings($snapper, $target)
     {
         if (!isset($this->uploadSettings[$snapper][$target])) {
-            throw new RuntimeException(
-                "Upload settings not found for \"{$snapper}\" to \"{$target}\" repository!"
+
+            if (!isset($this->uploadSettings[$snapper])) {
+                $this->uploadSettings[$snapper] = [];
+            }
+
+            $this->uploadSettings[$snapper][$target] = new UploadSettings(
+                $this->getSnapper($snapper),
+                $this->getRepository($target),
+                new DataBag()
             );
         }
 
@@ -216,15 +230,15 @@ class Configuration
     {
         $uploads = $this->data->get('upload_settings', []);
 
-        foreach ($uploads as $snaper => $repositories) {
+        foreach ($uploads as $snapper => $repositories) {
             foreach ($repositories as $repo => $data) {
 
-                if (!isset($this->uploadSettings[$snaper])) {
-                    $this->uploadSettings[$snaper] = [];
+                if (!isset($this->uploadSettings[$snapper])) {
+                    $this->uploadSettings[$snapper] = [];
                 }
 
-                $this->uploadSettings[$snaper][$repo] = new UploadSettings(
-                    $this->getSnapper($snaper),
+                $this->uploadSettings[$snapper][$repo] = new UploadSettings(
+                    $this->getSnapper($snapper),
                     $this->getRepository($repo),
                     $data
                 );

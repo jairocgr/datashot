@@ -54,7 +54,7 @@ class RestoringSettings
 
     public function getTargetDatabaseName()
     {
-        return $this->data->getr("database_name");
+        return $this->data->get("database_name", $this->sourceSnapper->getDatabaseName());
     }
 
     public function getDatabaseCharset()

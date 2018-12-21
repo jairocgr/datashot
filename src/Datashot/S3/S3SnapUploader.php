@@ -48,8 +48,7 @@ class S3SnapUploader implements SnapUploader
 
         $client->putObject([
             'Key' => $this->getSourceFileName(),
-            'Bucket' => $this->config->get('bucket') . '/' .
-                        $this->config->getTargetFolder(),
+            'Bucket' => $this->getUploadPath(),
             'SourceFile' => $source
         ]);
 
@@ -79,5 +78,22 @@ class S3SnapUploader implements SnapUploader
     function getTargetRepository()
     {
         return $this->config->getTargetRepository();
+    }
+
+    private function getUploadPath()
+    {
+        $path = $this->getTargetBucket(). '/' .
+                $this->config->getTargetFolder();
+
+        return rtrim($path, " \t\n\r\0\x0B\/");
+    }
+
+    private function getTargetBucket()
+    {
+        $repo = $this->config->getTargetRepository();
+
+        $target = $repo->get('bucket', '/');
+
+        return $this->config->get('bucket', $target);
     }
 }

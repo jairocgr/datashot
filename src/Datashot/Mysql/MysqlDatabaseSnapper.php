@@ -193,7 +193,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     {
         $builder = $this->lookupBuilder($table);
 
-        $where = call_user_func($builder, $this);
+        $where = call_user_func($builder, $this, $table);
 
         return $this->resolveBoundedParams($where);
     }
