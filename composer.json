@@ -3,7 +3,7 @@
     "description": "A tool for taking partial database dumps for testing and development",
     "type": "library",
     "license": "MIT",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "homepage": "https://github.com/jairocgr/datashot",
     "prefer-stable": true,
     "authors": [
