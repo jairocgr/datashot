@@ -1,14 +1,6 @@
 <?php return [
   // datashot.config.php —— the datashot configuration file
 
-  // Optional user-defined parameters that can be further referenced inside
-  // this configuration file.
-  //
-  // Also can be overwiter via --set options via cli calls.
-  'parameters' => [
-      'default_phone_number' => '+55 67 99999-1000',
-  ],
-
   // The snappers are configurations units that stablished all the
   'snappers' => [
 
@@ -47,11 +39,10 @@
       // If you wanna dump only the ddl, triggers, functions, etc.
       // 'no_data' => TRUE,
 
-      // Custom made user-defined property that could also be overwriten
-      // via --set cli option
+      // Custom made user-defined property
       'excluded_users' => [ 'usr103' ],
 
-      'nrows' => 3, // in the test cast, overwriten by --set nrows=2
+      'nrows' => 2,
 
       // The 'cutoff' property will be evaluate as the closure's return
       'cutoff' => function (\Datashot\Core\DatabaseSnapper $snapper) {
@@ -122,7 +113,7 @@
         'users' => function ($row, \Datashot\Core\DatabaseSnapper $snapper) {
 
           // hidding user phone numbers
-          $row->phone = $snapper->get('default_phone_number');
+          $row->phone = '+55 67 99999-1000';
 
           return $row;
         },

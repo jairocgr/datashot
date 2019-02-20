@@ -13,11 +13,6 @@ class Configuration
     private $data;
 
     /**
-     * @var DataBag
-     */
-    private $parameters;
-
-    /**
      * @var SnapperConfiguration[]
      */
     private $snappers = [];
@@ -46,7 +41,6 @@ class Configuration
     {
         $this->data = new DataBag($data);
 
-        $this->parseParameters();
         $this->parseDatabaseServers();
         $this->parseSnappers();
         $this->parseRestoringSettings();
@@ -59,9 +53,6 @@ class Configuration
         $servers = $this->data->get('database_servers', []);
 
         foreach ($servers as $server => $config) {
-
-            $config = $this->parameters->combine($config);
-
             $this->databaseServers[$server] = new DatabaseServer($server, $config);
         }
     }
@@ -74,8 +65,6 @@ class Configuration
         $snappers = $this->data->get("snappers");
 
         foreach ($snappers as $snapperName => $data) {
-
-            $data = $this->parameters->combine($data);
 
             if ($data->exists('extends')) {
 
@@ -90,8 +79,6 @@ class Configuration
                     $data->toArray()
                 ));
             }
-
-            $data->merge($this->parameters);
 
             $this->snappers[$snapperName] = $this->parseSnapper($snapperName, $data);
         }
@@ -231,8 +218,6 @@ class Configuration
 
         foreach ($repositories as $repo => $config) {
 
-            $config = $this->parameters->combine($config);
-
             $this->repositories[$repo] = new Repository($repo, $config);
         }
     }
@@ -256,10 +241,5 @@ class Configuration
 
             }
         }
-    }
-
-    private function parseParameters()
-    {
-        $this->parameters = $this->data->get('parameters', new DataBag());
     }
 }

@@ -110,8 +110,6 @@ class DatashotTest extends TestCase
 
             '--config' => "{$this->ROOT_DIR}/datashot.config.php",
 
-            '--set' => [ 'nrows=2' ],
-
             // prefix the key with two dashes when passing options,
             // e.g: '--some-option' => 'option_value',
         ]);
