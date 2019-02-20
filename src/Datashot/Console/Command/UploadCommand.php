@@ -36,7 +36,7 @@ class UploadCommand extends BaseCommand
 
     protected function setupListeners()
     {
-        $this->bus->on(SnapUploader::UPLOADING, function (SnapUploader $upload) {
+        $this->datashot->on(SnapUploader::UPLOADING, function (SnapUploader $upload) {
 
             $this->console->write(
                 " → Uploading <b>{$upload->getSourceFileName()}</b> " .
@@ -46,7 +46,7 @@ class UploadCommand extends BaseCommand
             return;
         });
 
-        $this->bus->on(SnapUploader::DONE, function ($upload, $data) {
+        $this->datashot->on(SnapUploader::DONE, function ($upload, $data) {
             $this->console->writeln(" <success>Done ✓</success> <fade>({$this->format($data->time)})</fade>");
             return;
         });

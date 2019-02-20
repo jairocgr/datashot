@@ -37,7 +37,7 @@ class RestoreCommand extends BaseCommand
 
     protected function setupListeners()
     {
-        $this->bus->on(SnapRestorer::RESTORING, function (SnapRestorer $restorer) {
+        $this->datashot->on(SnapRestorer::RESTORING, function (SnapRestorer $restorer) {
 
             if ($this->verbosity < 1) {
 
@@ -67,7 +67,7 @@ class RestoreCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(SnapRestorer::RESTORED, function ($restorer, $data) {
+        $this->datashot->on(SnapRestorer::RESTORED, function ($restorer, $data) {
 
             if ($this->verbosity < 1) {
                 $this->console->writeln(" <success>Done ✓</success> <fade>({$this->format($data->time)})</fade>");
@@ -81,7 +81,7 @@ class RestoreCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(SnapRestorer::CREATING_DATABASE, function (SnapRestorer $restorer) {
+        $this->datashot->on(SnapRestorer::CREATING_DATABASE, function (SnapRestorer $restorer) {
 
             if ($this->verbosity < 1) {
                 return;
@@ -96,7 +96,7 @@ class RestoreCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(SnapRestorer::STDOUT, function (SnapRestorer $restorer, $data) {
+        $this->datashot->on(SnapRestorer::STDOUT, function (SnapRestorer $restorer, $data) {
 
             if ($this->verbosity < 1) {
                 return;

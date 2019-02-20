@@ -2,14 +2,16 @@
 
 namespace Datashot;
 
+use Closure;
 use Datashot\Core\Configuration;
 use Datashot\Core\DatabaseSnapper;
+use Datashot\Core\EventBus;
+use Datashot\Core\Shell;
 use Datashot\Core\SnapRestorer;
 use Datashot\Core\SnapUploader;
 use Datashot\Mysql\MysqlDatabaseSnapper;
 use Datashot\Mysql\MysqlSnapRestorer;
 use Datashot\S3\S3SnapUploader;
-use Datashot\Util\EventBus;
 use RuntimeException;
 
 class Datashot
@@ -41,9 +43,13 @@ class Datashot
     /** @var EventBus */
     private $bus;
 
-    public function __construct(EventBus $bus, array $config)
+    /** @var Shell */
+    private $shell;
+
+    public function __construct(array $config)
     {
-        $this->bus = $bus;
+        $this->bus = new EventBus();
+        $this->shell = new Shell();
         $this->config = new Configuration($config);
     }
 
@@ -66,7 +72,7 @@ class Datashot
         switch ($driver) {
             case 'mysql':
 
-                return new MysqlDatabaseSnapper($this->bus, $snapper);
+                return new MysqlDatabaseSnapper($this->bus, $this->shell, $snapper);
 
                 break;
             default:
@@ -95,7 +101,7 @@ class Datashot
         switch ($driver) {
             case 'mysql':
 
-                return new MysqlSnapRestorer($this->bus, $settings);
+                return new MysqlSnapRestorer($this->bus, $this->shell, $settings);
 
                 break;
             default:
@@ -132,5 +138,10 @@ class Datashot
                     "Insuported \"{$driver}\" repository driver"
                 );
         }
+    }
+
+    public function on($event, Closure $callback)
+    {
+        $this->bus->on($event, $callback);
     }
 }

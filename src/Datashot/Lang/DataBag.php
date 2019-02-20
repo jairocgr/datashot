@@ -20,8 +20,14 @@ class DataBag implements ArrayAccess, Iterator
         }
     }
 
-    public function merge(array $data) {
-        $this->data = array_replace_recursive($this->data, $data);
+    public function merge($data) {
+        if (is_array($data)) {
+            $this->data = array_replace_recursive($this->data, $data);
+        } elseif ($data instanceof DataBag) {
+            $this->merge($data->toArray());
+        } else {
+            throw new RuntimeException('Could not merge "'.gettype($data).'" data!');
+        }
     }
 
     public function get($key, $defaultValue = NULL) {
@@ -482,5 +488,16 @@ class DataBag implements ArrayAccess, Iterator
         }
 
         return $params;
+    }
+
+    public function combine($data)
+    {
+        if (is_array($data)) {
+            return new DataBag(array_replace_recursive($this->data, $data));
+        } elseif ($data instanceof DataBag) {
+            return $this->combine($data->toArray());
+        } else {
+            throw new RuntimeException('Could not combine "'.gettype($data).'" data!');
+        }
     }
 }

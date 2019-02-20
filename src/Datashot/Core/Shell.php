@@ -1,28 +1,12 @@
 <?php
 
-namespace Datashot\Util;
+namespace Datashot\Core;
 
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
 class Shell
 {
-    private static $instance;
-
-    /**
-     * @return Shell
-     */
-    public static function getInstance()
-    {
-        if (static::$instance == NULL) {
-            static::$instance = new Shell();
-        }
-
-        return self::$instance;
-    }
-
-    private function __construct() {}
-
     /**
      * @return Process
      */

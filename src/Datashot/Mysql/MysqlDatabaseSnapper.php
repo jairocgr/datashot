@@ -4,13 +4,13 @@ namespace Datashot\Mysql;
 
 use Datashot\Core\DatabaseServer;
 use Datashot\Core\DatabaseSnapper;
+use Datashot\Core\EventBus;
+use Datashot\Core\Shell;
 use Datashot\Core\SnapperConfiguration;
 use Datashot\Datashot;
 use Datashot\IO\GzipFileWriter;
 use Datashot\IO\TextFileWriter;
 use Datashot\Lang\DataBag;
-use Datashot\Util\EventBus;
-use Datashot\Util\Shell;
 use PDO;
 use RuntimeException;
 
@@ -39,38 +39,14 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     /** @var Shell */
     private $shell;
 
-    public function __construct(EventBus $bus, SnapperConfiguration $conf)
+    public function __construct(EventBus $bus, Shell $shell, SnapperConfiguration $conf)
     {
         $this->bus = $bus;
         $this->conf = $conf;
 
-        $this->shell = Shell::getInstance();
+        $this->shell = $shell;
 
         $this->checkPreconditions();
-    }
-
-    private function wrap($where)
-    {
-        if (is_callable($where)) {
-            return $where;
-        } else {
-            return function () use ($where) {
-                return $this->toString($where);
-            };
-        }
-    }
-
-    private function toString($value)
-    {
-        if ($value === true) {
-            return 'true';
-        }
-
-        if ($value === false) {
-            return 'false';
-        }
-
-        return strval($value);
     }
 
     public function snap()
@@ -191,24 +167,34 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function buildWhereClause($table)
     {
-        $builder = $this->lookupBuilder($table);
+        $wheres = $this->conf->get('wheres', []);
 
-        $where = call_user_func($builder, $this, $table);
+        if (isset($wheres[$table])) {
+            $where = $this->stringfy($wheres[$table]);
+        } elseif ($this->conf->hasParam('where')) {
+            $where = $this->stringfy($this->conf->get('where'));
+        } else {
+            return "TRUE";
+        }
+
+        $where = $this->strip($where);
 
         return $this->resolveBoundedParams($where);
     }
 
-    private function lookupBuilder($table)
+    private function stringfy($value)
     {
-        $whereBuilders = $this->conf->get('wheres', []);
-
-        if (isset($whereBuilders[$table])) {
-            $where = $whereBuilders[$table];
-
-            return $this->wrap($where);
+        if (is_callable($value)) {
+            $value = call_user_func($value, $this);
+        } elseif ($value === TRUE) {
+            $value = 'TRUE';
+        } elseif ($value === FALSE) {
+            $value = 'FALSE';
         } else {
-            return $this->wrap($this->conf->get('where', 'true'));
+            $value = strval($value);
         }
+
+        return $this->resolveBoundedParams($value);
     }
 
     private function dumpAll()
@@ -244,6 +230,17 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     public function append($command)
     {
+        if (is_callable($command)) {
+            $command = call_user_func($command, $this);
+
+            if (!empty($command)) {
+                $this->append($command);
+            }
+        }
+
+        $command = strval($command);
+        $command = $this->resolveBoundedParams($command);
+
         $this->output->writeln($command);
     }
 
@@ -333,7 +330,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         if ($this->conf->hasRowTransformer($table)) {
             $transformer = $this->conf->getRowTransformer($table);
 
-            $row = call_user_func($transformer, $row);
+            $row = call_user_func($transformer, $row, $this);
         }
 
         $columnTypes = $this->getColumnTypes($table);
@@ -647,10 +644,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
           SELECT {$columns} FROM `{$table}` WHERE {$where}
         ");
 
-        if (!empty($where)) {
-            $where = $this->strip($where);
-        }
-
         $this->publish(DatabaseSnapper::DUMPING_TABLE_DATA, [
             'table' => $table,
             'where' => $where
@@ -711,10 +704,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     {
         $where = $this->buildWhereClause($table);
 
-        if (!empty($where)) {
-            $where = $this->strip($where);
-        }
-
         $this->publish(DatabaseSnapper::DUMPING_TABLE_DATA, [
             'table' => $table,
             'where' => $where
@@ -723,12 +712,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->output->comment("Dumping data for table \"{$table}\"");
         $this->output->comment(" WHERE {$this->cutoff($where, 68)}");
         $this->output->message("Restoring {$table}...");
-
-        if (empty($where)) {
-            $whereArg = "";
-        } else {
-            $whereArg = "--where=\"{$where}\"";
-        }
 
         $start = microtime(true);
 
@@ -747,7 +730,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
                 --lock-tables=false \
                 --skip-comments \
                 --quick \
-                {$whereArg} \
+                --where=\"{$where}\" \
                 {$this->conf->getDatabaseName()} {$table}
         ");
 
@@ -761,6 +744,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function strip($whereClause)
     {
         $whereClause = str_replace("\n", "", $whereClause);
+        $whereClause = trim($whereClause);
         return preg_replace("/[ ]{2,}/", ' ', $whereClause);
     }
 
@@ -1036,33 +1020,16 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
             $before = $this->conf->get('before');
 
-            if (is_callable($before)) {
-                $result = call_user_func($before, $this);
-
-                if (!empty($result)) {
-                    $this->append($this->resolveBoundedParams($result));
-                }
-            } else {
-                $this->append($this->resolveBoundedParams(strval($before)));
-            }
+            $this->append($before);
         }
     }
 
     private function afterHook()
     {
         if ($this->conf->hasParam('after')) {
-
             $after = $this->conf->get('after');
 
-            if (is_callable($after)) {
-                $result = call_user_func($after, $this);
-
-                if (!empty($result)) {
-                    $this->append($this->resolveBoundedParams($result));
-                }
-            } else {
-                $this->append($this->resolveBoundedParams(strval($after)));
-            }
+            $this->append($after);
         }
     }
 
@@ -1073,6 +1040,14 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     function set($key, $value)
     {
-        return $this->conf->set($key, $value);
+        $this->conf->set($key, $value);
+    }
+
+    /**
+     * @return bool
+     */
+    function has($key)
+    {
+        return $this->conf->hasParam($key);
     }
 }

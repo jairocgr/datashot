@@ -51,7 +51,18 @@ class DataBagTest extends TestCase
 
             'username' => '{database_servers.workbench1.username}',
             'rows' => '{row_count}',
-            'server' => '{database_servers}'
+            'server' => '{database_servers}',
+
+            'repositories' => [
+                'repo1' => [
+                    'driver' => 's3',
+                    'region' => 'us-east-1',
+                ],
+                'repo2' => [
+                    'driver' => 's3',
+                    'region' => 'us-east-1',
+                ],
+            ],
         ]);
     }
 
@@ -121,6 +132,24 @@ class DataBagTest extends TestCase
         $this->assertEquals(2, $iterations);
     }
 
+    public function testIterateAndSet() {
+        foreach ($this->data->repositories as $key => $val) {
+            $this->assertEquals('s3', $val->driver);
+            $this->data->set("repositories.{$key}.region", "brazil");
+            $this->data->set("repositories.{$key}.name", "repo");
+            $val->write_only = '16';
+        }
+
+        $this->assertEquals('brazil', $this->data->get('repositories.repo1.region'));
+        $this->assertEquals('repo', $this->data->get('repositories.repo1.name'));
+        $this->assertEquals('16', $this->data->get('repositories.repo1.write_only'));
+
+        $this->assertEquals('brazil', $this->data->get('repositories.repo2.region'));
+        $this->assertEquals('repo', $this->data->get('repositories.repo2.name'));
+
+        $this->assertEquals('brazil', ($this->data->toArray())['repositories']['repo2']['region']);
+    }
+
     public function testGetRequired()
     {
         $this->expectException(RuntimeException::class);
@@ -161,6 +190,22 @@ class DataBagTest extends TestCase
         $this->assertEquals(DataBag::class, get_class($databag));
         $this->assertEquals('val1', $databag->param1);
         $this->assertEquals(2, $databag->param2);
+    }
+
+    public function testSetDotSyntax()
+    {
+        $this->data->set('databag1', [
+            'param1' => 'val1',
+            'param2' => 2
+        ]);
+
+        $this->data->set('databag1.param2', 'value2');
+
+        $databag = $this->data->get('databag1');
+
+        $this->assertEquals(DataBag::class, get_class($databag));
+        $this->assertEquals('val1', $databag->param1);
+        $this->assertEquals('value2', $databag->param2);
     }
 
     public function testExists() {

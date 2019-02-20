@@ -3,8 +3,8 @@
 namespace Datashot\Console\Command;
 
 use Datashot\Datashot;
+use Datashot\Lang\DataBag;
 use Datashot\Util\ConsoleOutput;
-use Datashot\Util\EventBus;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -40,11 +40,6 @@ abstract class BaseCommand extends Command
     protected $datashot;
 
     /**
-     * @var EventBus
-     */
-    protected $bus;
-
-    /**
      * @var ConsoleOutput
      */
     protected $console;
@@ -68,13 +63,13 @@ abstract class BaseCommand extends Command
                  'set',
                  's',
                  InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
-                 'Set parameter'
+                 'Set parameter via "param=val" format'
              )
 
              ->addArgument(
                 'snappers',
                 InputArgument::OPTIONAL | InputArgument::IS_ARRAY,
-                'The choosed snappers to act upon',
+                'The chosen snappers to act upon',
                 [ 'default' ]
              );
 
@@ -83,11 +78,6 @@ abstract class BaseCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $this->config = $this->loadConfig($input);
-        $this->snappers = $input->getArgument("snappers");
-
-        $this->bus = new EventBus();
-
         $this->input = $input;
         $this->output = $output;
 
@@ -95,9 +85,12 @@ abstract class BaseCommand extends Command
 
         $this->console = new ConsoleOutput($input, $output);
 
-        $this->datashot = new Datashot($this->bus, $this->config);
+        $this->config = $this->loadConfig();
+        $this->snappers = $input->getArgument("snappers");
 
-        $this->bus->on('output', function ($string) {
+        $this->datashot = new Datashot($this->config);
+
+        $this->datashot->on('output', function ($string) {
             if ($this->verbosity >= 1) {
                 $this->console->puts($string);
             }
@@ -109,9 +102,9 @@ abstract class BaseCommand extends Command
     }
 
     /** @return array */
-    private function loadConfig(InputInterface $input)
+    private function loadConfig()
     {
-        $configFile = $input->getOption('config');
+        $configFile = $this->input->getOption('config');
 
         if (!file_exists($configFile)) {
             throw new RuntimeException(
@@ -119,7 +112,40 @@ abstract class BaseCommand extends Command
             );
         }
 
-        return require $configFile;
+        $config = require $configFile;
+
+        $config = new DataBag($config);
+
+        foreach ($this->parseParams() as $param => $value) {
+            $config->set($param, $value);
+            $config->set("parameters.{$param}", $value);
+
+            foreach ($config->get('snappers') as $key => $val) {
+                $config->set("snappers.{$key}.{$param}", $value);
+            }
+
+            foreach ($config->get('database_servers') as $key => $val) {
+                $config->set("database_servers.{$key}.{$param}", $value);
+            }
+
+            foreach ($config->get('restoring_settings') as $snapper => $servers) {
+                foreach ($servers as $serverName => $conf) {
+                    $config->set("restoring_settings.{$snapper}.{$serverName}.{$param}", $value);
+                }
+            }
+
+            foreach ($config->get('repositories') as $key => $val) {
+                $config->set("repositories.{$key}.{$param}", $value);
+            }
+
+            foreach ($config->get('upload_settings') as $snapper => $repos) {
+                foreach ($repos as $repo => $conf) {
+                    $config->set("upload_settings.{$snapper}.{$repo}.{$param}", $value);
+                }
+            }
+        }
+
+        return $config->toArray();
     }
 
     protected abstract function config();
@@ -203,14 +229,14 @@ abstract class BaseCommand extends Command
 
         foreach ($this->input->getOption('set') as $param) {
 
-            if (preg_match('/[^\s]+\=[^\s]+/', $param) !== 1) {
+            if (preg_match('/[^\s]+\=.*/', $param) !== 1) {
                 throw new RuntimeException("Invalid parameter \"{$param}\"!");
             }
 
             $pieces = explode('=', $param);
 
             $key = trim($pieces[0]);
-            $value = trim($pieces[1]);
+            $value = trim(isset($pieces[1]) ? $pieces[1] : '');
 
             $this->console->puts("{$key}: \"{$value}\"");
 

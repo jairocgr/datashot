@@ -2,7 +2,6 @@
 
 namespace Datashot\Core;
 
-use Datashot\Util\EventBus;
 use PDO;
 use PDOStatement;
 
@@ -33,8 +32,6 @@ interface DatabaseSnapper
     const CREATING_SNAP_FILE = 'creating_snap_file';
     const SNAPPING           = 'snapping';
 
-    function __construct(EventBus $bus, SnapperConfiguration $config);
-
     function snap();
 
     /**
@@ -62,12 +59,20 @@ interface DatabaseSnapper
      */
     function getDatabaseHost();
 
+    /**
+     *
+     */
     function set($key, $value);
 
     /**
      * @return mixed
      */
     function get($key, $defaultValue = NULL);
+
+    /**
+     * @return bool
+     */
+    function has($key);
 
     /**
      * @return PDOStatement

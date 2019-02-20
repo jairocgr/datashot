@@ -22,7 +22,7 @@ class SnapCommand extends BaseCommand
 
     protected function setupListeners()
     {
-        $this->bus->on(DatabaseSnapper::SNAPPING, function (DatabaseSnapper $snapper) {
+        $this->datashot->on(DatabaseSnapper::SNAPPING, function (DatabaseSnapper $snapper) {
 
             if ($this->verbosity < 1) {
 
@@ -50,7 +50,7 @@ class SnapCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_DDL, function () {
+        $this->datashot->on(DatabaseSnapper::DUMPING_DDL, function () {
 
             if ($this->verbosity < 1) {
                 return;
@@ -59,7 +59,7 @@ class SnapCommand extends BaseCommand
             $this->console->puts("Dump tables DDL...");
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_DATA, function () {
+        $this->datashot->on(DatabaseSnapper::DUMPING_DATA, function () {
 
             if ($this->verbosity < 1) {
                 return;
@@ -68,7 +68,7 @@ class SnapCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_VIEWS, function () {
+        $this->datashot->on(DatabaseSnapper::DUMPING_VIEWS, function () {
 
             if ($this->verbosity < 1) {
                 return;
@@ -77,7 +77,7 @@ class SnapCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_VIEW, function ($snapper, $data) {
+        $this->datashot->on(DatabaseSnapper::DUMPING_VIEW, function ($snapper, $data) {
 
             if ($this->verbosity < 1) {
                 return;
@@ -86,7 +86,7 @@ class SnapCommand extends BaseCommand
             $this->console->puts("Dumping view <b>{$data->view}</b>...");
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_TABLE_DATA, function ($snapper, $data) {
+        $this->datashot->on(DatabaseSnapper::DUMPING_TABLE_DATA, function ($snapper, $data) {
 
             if ($this->verbosity < 1) {
                 return;
@@ -99,7 +99,7 @@ class SnapCommand extends BaseCommand
             }
         });
 
-        $this->bus->on(DatabaseSnapper::TABLE_DUMPED, function ($snapper, $data) {
+        $this->datashot->on(DatabaseSnapper::TABLE_DUMPED, function ($snapper, $data) {
             if ($this->verbosity >= 2) {
 
                 if ($data->via_php) {
@@ -118,7 +118,7 @@ class SnapCommand extends BaseCommand
             }
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_TRIGGERS, function () {
+        $this->datashot->on(DatabaseSnapper::DUMPING_TRIGGERS, function () {
 
             if ($this->verbosity < 1) {
                 return;
@@ -127,7 +127,7 @@ class SnapCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_FUNCTIONS, function () {
+        $this->datashot->on(DatabaseSnapper::DUMPING_FUNCTIONS, function () {
 
             if ($this->verbosity < 1) {
                 return;
@@ -136,7 +136,7 @@ class SnapCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_PROCEDURES, function () {
+        $this->datashot->on(DatabaseSnapper::DUMPING_PROCEDURES, function () {
 
             if ($this->verbosity < 1) {
                 return;
@@ -145,7 +145,7 @@ class SnapCommand extends BaseCommand
             $this->console->newLine();
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_TRIGGER, function ($snapper, $data) {
+        $this->datashot->on(DatabaseSnapper::DUMPING_TRIGGER, function ($snapper, $data) {
 
             if ($this->verbosity < 1) {
                 return;
@@ -154,7 +154,7 @@ class SnapCommand extends BaseCommand
             $this->console->puts("Trigger <b>{$data->trigger}</b>");
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_FUNCTION, function ($snapper, $data) {
+        $this->datashot->on(DatabaseSnapper::DUMPING_FUNCTION, function ($snapper, $data) {
 
             if ($this->verbosity < 1) {
                 return;
@@ -163,7 +163,7 @@ class SnapCommand extends BaseCommand
             $this->console->puts("Function <b>{$data->function}</b>");
         });
 
-        $this->bus->on(DatabaseSnapper::DUMPING_PROCEDURE, function ($snapper, $data) {
+        $this->datashot->on(DatabaseSnapper::DUMPING_PROCEDURE, function ($snapper, $data) {
 
             if ($this->verbosity < 1) {
                 return;
@@ -172,7 +172,7 @@ class SnapCommand extends BaseCommand
             $this->console->puts("Procedure <b>{$data->procedure}</b>");
         });
 
-        $this->bus->on(DatabaseSnapper::SNAPPED, function ($snapper, $data) {
+        $this->datashot->on(DatabaseSnapper::SNAPPED, function ($snapper, $data) {
 
             if ($this->verbosity < 1) {
                 $this->console->writeln(" <success>Done ✓</success> <fade>({$this->format($data->time)})</fade>");

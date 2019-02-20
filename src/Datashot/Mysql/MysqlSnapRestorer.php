@@ -3,12 +3,12 @@
 namespace Datashot\Mysql;
 
 use Datashot\Core\DatabaseServer;
+use Datashot\Core\EventBus;
 use Datashot\Core\RestoringSettings;
+use Datashot\Core\Shell;
 use Datashot\Core\SnapperConfiguration;
 use Datashot\Core\SnapRestorer;
 use Datashot\Lang\DataBag;
-use Datashot\Util\EventBus;
-use Datashot\Util\Shell;
 use PDO;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -40,12 +40,12 @@ class MysqlSnapRestorer implements SnapRestorer
      */
     private $shell;
 
-    public function __construct(EventBus $bus, RestoringSettings $config)
+    public function __construct(EventBus $bus, Shell $shell, RestoringSettings $config)
     {
         $this->bus = $bus;
         $this->config = $config;
 
-        $this->shell = Shell::getInstance();
+        $this->shell = $shell;
 
         $this->checkPreConditions();
     }

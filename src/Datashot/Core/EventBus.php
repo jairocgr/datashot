@@ -1,6 +1,6 @@
 <?php
 
-namespace Datashot\Util;
+namespace Datashot\Core;
 
 use Closure;
 

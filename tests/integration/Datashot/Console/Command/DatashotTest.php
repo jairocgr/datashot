@@ -3,8 +3,8 @@
 namespace Datashot\Console\Command;
 
 use Datashot\Console\DatashotApp;
+use Datashot\Core\Shell;
 use Datashot\Datashot;
-use Datashot\Util\Shell;
 use DateTime;
 use Dotenv\Dotenv;
 use PDO;
@@ -44,7 +44,7 @@ class DatashotTest extends TestCase
         $dotenv = new Dotenv($this->ROOT_DIR);
         $dotenv->overload();
 
-        $this->shell = Shell::getInstance();
+        $this->shell = new Shell();
 
         $this->application = new DatashotApp();
     }
@@ -109,6 +109,8 @@ class DatashotTest extends TestCase
             'snappers' => [ 'datashot', 'datashot_sql' ],
 
             '--config' => "{$this->ROOT_DIR}/datashot.config.php",
+
+            '--set' => [ 'nrows=2' ],
 
             // prefix the key with two dashes when passing options,
             // e.g: '--some-option' => 'option_value',

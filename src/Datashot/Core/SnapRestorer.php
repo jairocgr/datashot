@@ -13,8 +13,6 @@ interface SnapRestorer
     const CREATING_DATABASE = 'creating_database';
     const STDOUT = 'restoring_stdout';
 
-    function __construct(EventBus $bus, RestoringSettings $config);
-
     function restore();
 
     /**

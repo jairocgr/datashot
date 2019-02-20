@@ -1,6 +1,14 @@
 <?php return [
   // datashot.config.php —— the datashot configuration file
 
+  // Optional user-defined parameters that can be further referenced inside
+  // this configuration file.
+  //
+  // Also can be overwiter via --set options via cli calls.
+  'parameters' => [
+      'default_phone_number' => '+55 67 99999-1000',
+  ],
+
   // The snappers are configurations units that stablished all the
   'snappers' => [
 
@@ -39,8 +47,11 @@
       // If you wanna dump only the ddl, triggers, functions, etc.
       // 'no_data' => TRUE,
 
-      // Custom made user-defined property
+      // Custom made user-defined property that could also be overwriten
+      // via --set cli option
       'excluded_users' => [ 'usr103' ],
+
+      'nrows' => 3, // in the test cast, overwriten by --set nrows=2
 
       // The 'cutoff' property will be evaluate as the closure's return
       'cutoff' => function (\Datashot\Core\DatabaseSnapper $snapper) {
@@ -71,7 +82,7 @@
       },
 
       // Optional generic where that will be aplied to all database tables
-      'where' => 'true order by 1 limit 2', # bring only 2 rows per table
+      'where' => 'true order by 1 limit {nrows}',
 
       // Table-specific where used to filter the rows witch will be dumped
       'wheres' => [
@@ -108,10 +119,10 @@
       // You can define closures to transform the rows that are been dumped
       // NOTICE: On big tables, this may slow things down
       'row_transformers' => [
-        'users' => function ($row) {
+        'users' => function ($row, \Datashot\Core\DatabaseSnapper $snapper) {
 
           // hidding user phone numbers
-          $row->phone = "+55 67 99999-1000";
+          $row->phone = $snapper->get('default_phone_number');
 
           return $row;
         },

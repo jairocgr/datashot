@@ -2,13 +2,12 @@
 
 namespace Datashot\S3;
 
-use Aws\Credentials\Credentials;
 use Aws\S3\S3Client;
 use Datashot\Core\Repository;
 use Datashot\Core\SnapUploader;
 use Datashot\Core\UploadSettings;
 use Datashot\Lang\DataBag;
-use Datashot\Util\EventBus;
+use Datashot\Core\EventBus;
 
 class S3SnapUploader implements SnapUploader
 {
