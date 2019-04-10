@@ -104,7 +104,7 @@ class SnapperConfiguration
 
     public function getUser()
     {
-        return $this->getDatabaseServer()->getUserName();
+        return $this->getDatabaseServer()->getUser();
     }
 
     /**

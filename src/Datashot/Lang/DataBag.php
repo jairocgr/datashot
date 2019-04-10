@@ -50,8 +50,8 @@ class DataBag implements ArrayAccess, Iterator
 
     public function unsetKey(...$params) {
         if (is_array($params[0])) {
-            foreach ($params[0] as $key => $value) {
-                $this->unsetKey($key, $value);
+            foreach ($params[0] as $param) {
+                $this->unsetKey($param);
             }
         } else {
             $this->lookupAndSet($params[0], NULL);

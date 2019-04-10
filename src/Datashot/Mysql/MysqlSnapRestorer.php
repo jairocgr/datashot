@@ -123,7 +123,7 @@ class MysqlSnapRestorer implements SnapRestorer
             $dsn = "mysql:unix_socket={$target->getSocket()};";
         }
 
-        $this->pdo = new PDO($dsn, $target->getUserName(), $target->getPassword(), [
+        $this->pdo = new PDO($dsn, $target->getUser(), $target->getPassword(), [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
             PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"
@@ -143,7 +143,7 @@ class MysqlSnapRestorer implements SnapRestorer
                    "dbname={$this->getTargetDatabaseName()}";
         }
 
-        $this->pdo = new PDO($dsn, $target->getUserName(), $target->getPassword(), [
+        $this->pdo = new PDO($dsn, $target->getUser(), $target->getPassword(), [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
             PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"
@@ -214,7 +214,7 @@ class MysqlSnapRestorer implements SnapRestorer
         $res = fwrite($temp,
             "[client]\n" .
             $connectionParams .
-            "user={$target->getUserName()}\n" .
+            "user={$target->getUser()}\n" .
             "password={$target->getPassword()}\n"
         );
 

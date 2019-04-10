@@ -39,7 +39,7 @@ class Configuration
 
     public function __construct(array $data)
     {
-        $this->data = new DataBag($data);
+        $this->data = $this->wrap($data);
 
         $this->parseDatabaseServers();
         $this->parseSnappers();
@@ -241,5 +241,14 @@ class Configuration
 
             }
         }
+    }
+
+    private function wrap(array $data)
+    {
+        if (empty($data)) {
+            throw new RuntimeException("Configuration array cannot be empty!");
+        }
+
+        return new DataBag($data);
     }
 }

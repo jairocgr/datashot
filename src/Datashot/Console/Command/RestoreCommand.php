@@ -62,7 +62,7 @@ class RestoreCommand extends BaseCommand
                 $this->console->puts("  socket <b>{$db->getSocket()}</b>");
             }
 
-            $this->console->puts("  user <b>{$db->getUserName()}</b>");
+            $this->console->puts("  user <b>{$db->getUser()}</b>");
             $this->console->puts("  pwd <b>{$this->hidePwd($db->getPassword())}</b>");
             $this->console->newLine();
         });

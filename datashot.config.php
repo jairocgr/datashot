@@ -42,7 +42,7 @@
       // Custom made user-defined property
       'excluded_users' => [ 'usr103' ],
 
-      'nrows' => 2,
+      'nrows' => 3,
 
       // The 'cutoff' property will be evaluate as the closure's return
       'cutoff' => function (\Datashot\Core\DatabaseSnapper $snapper) {

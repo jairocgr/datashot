@@ -3,8 +3,10 @@
 namespace Datashot\Console\Command;
 
 use Datashot\Datashot;
+use Datashot\Lang\DataBag;
 use Datashot\Util\ConsoleOutput;
 use RuntimeException;
+use InvalidArgumentException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -58,6 +60,13 @@ abstract class BaseCommand extends Command
                 'datashot.config.php'
              )
 
+             ->addOption(
+                'set',
+                's',
+                InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
+                'Set parameter via "param=val" format'
+             )
+
              ->addArgument(
                 'snappers',
                 InputArgument::OPTIONAL | InputArgument::IS_ARRAY,
@@ -104,7 +113,14 @@ abstract class BaseCommand extends Command
             );
         }
 
-        return require $configFile;
+        $config = require $configFile;
+        $config = new DataBag($config);
+
+        foreach ($this->parseParams() as $key => $value) {
+            $config->set($key, $value);
+        }
+
+        return $config->toArray();
     }
 
     protected abstract function config();
@@ -181,4 +197,27 @@ abstract class BaseCommand extends Command
     }
 
     protected function setupListeners() {}
+
+    private function parseParams()
+    {
+        $params = [];
+
+        foreach ($this->input->getOption('set') as $param) {
+
+            if (preg_match('/[^\s]+\=.*/', $param) !== 1) {
+                throw new InvalidArgumentException("Invalid parameter \"{$param}\"!");
+            }
+
+            $pieces = explode('=', $param);
+
+            $key = trim($pieces[0]);
+            $value = trim(isset($pieces[1]) ? $pieces[1] : '');
+
+            $this->console->puts("{$key}: \"{$value}\"");
+
+            $params[$key] = $value;
+        }
+
+        return $params;
+    }
 }
