@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php">
+  <testsuites>
+    <testsuite name="integration">
+      <directory>tests/integration/</directory>
+    </testsuite>
+    <testsuite name="unit">
+      <directory>tests/unit/</directory>
+    </testsuite>
+    <testsuite name="local">
+      <directory>tests/local/</directory>
+    </testsuite>
+  </testsuites>
+</phpunit>
