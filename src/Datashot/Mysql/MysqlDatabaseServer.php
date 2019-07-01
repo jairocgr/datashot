@@ -389,6 +389,7 @@ class MysqlDatabaseServer implements DatabaseServer
 
         $this->shell->run("        
             mysqldump {$args} \
+             | sed -E 's/DEFINER=`[^`]+`@`[^`]+`/DEFINER=CURRENT_USER/g' \
              | mysql --defaults-file={$target->connectionFile} --unbuffered {$destinationDatabase}
         ");
 
