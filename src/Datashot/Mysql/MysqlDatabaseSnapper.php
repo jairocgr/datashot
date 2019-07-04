@@ -86,9 +86,10 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->beforeHook();
 
         if ($this->dumpAll()) {
+            $this->dumpSchema();
             // Dumping database schema
-            $this->dumpTablesDdl();
-            $this->dumpViews();
+            // $this->dumpTablesDdl();
+            // $this->dumpViews();
         }
 
         if ($this->dumpData()) {
@@ -757,6 +758,25 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $this->publish(DatabaseSnapper::TABLE_DUMPED, [
             'time' => ($end - $start)
         ]);
+    }
+
+    private function dumpSchema()
+    {
+        // Close and flush the current writings for mysql client
+        // shell appending
+        $this->output->close();
+
+        $this->appendOutput("
+            mysqldump --defaults-file={$this->connectionFile} \
+                --no-data \
+                --skip-triggers \
+                --disable-keys \
+                --no-autocommit \
+                --single-transaction \
+                --lock-tables=false \
+                --quick \
+                {$this->database}
+        ");
     }
 
     private function strip($whereClause)
