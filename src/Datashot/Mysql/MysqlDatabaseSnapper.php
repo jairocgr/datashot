@@ -644,9 +644,25 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     {
         $this->output->comment("Restoring actions");
 
-        $this->dumpTriggers();
-        $this->dumpProcedures();
-        $this->dumpFunctions();
+        // Close and flush the current writings for mysql client
+        // shell appending
+        $this->output->close();
+
+        $this->appendOutput("
+            mysqldump --defaults-file={$this->connectionFile} \
+                --no-create-info \
+                --no-data \
+                --routines \
+                --triggers \
+                --single-transaction \
+                --lock-tables=false \
+                --quick \
+                {$this->database}
+        ");
+
+        // $this->dumpTriggers();
+        // $this->dumpProcedures();
+        // $this->dumpFunctions();
     }
 
     private function publish($event, array $data = [])
