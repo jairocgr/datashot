@@ -99,7 +99,7 @@ class RestoreCommand extends BaseCommand
         $snaps = [];
 
         foreach ($this->input->getArgument('snaps') as $snap) {
-            $snaps[] = $this->datashot->getSnap($snap);
+            $snaps = array_merge($snaps, $this->datashot->findSnaps($snap));
         }
 
         return $snaps;

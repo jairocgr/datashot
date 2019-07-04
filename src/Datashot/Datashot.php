@@ -543,19 +543,26 @@ class Datashot
     }
 
     /**
-     * @param $snap
-     * @return Snap
+     * @param $path string
+     * @return Snap[]
      */
-    public function getSnap($snap)
+    public function findSnaps($path)
     {
-        $snap = $this->get($snap);
+        $item = $this->get($path);
+        $snaps = [];
 
-        if ($snap->isSnapshot()) {
-            return $snap;
+        foreach ($item->ls() as $entry) {
+            if ($entry->isSnapshot()) {
+                $snaps[] = $entry;
+            }
+        }
+
+        if (!empty($snaps)) {
+            return $snaps;
         }
 
         else throw new InvalidArgumentException(
-            "Snapshot \"{$snap}\" not found!"
+            "Snapshot \"{$path}\" not found!"
         );
     }
 }

@@ -162,6 +162,12 @@
         $users = $snapper->get('excluded_users');
         $snapper->set('excluded_users', $users);
 
+        $snapper->append("
+          CREATE TABLE _before_hook (
+            id integer not null auto_increment primary key,
+            handle varchar(24) not null );
+        ");
+
         // The return string will be appended to the file
         return "-- [Before hook comment]\n";
       },

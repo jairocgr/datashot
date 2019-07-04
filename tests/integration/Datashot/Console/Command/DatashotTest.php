@@ -17,7 +17,7 @@ class DatashotTest extends TestCase
     private $ROOT_DIR;
 
     /**
-     * @var datashot
+     * @var Datashot
      */
     private $application;
 
@@ -38,6 +38,8 @@ class DatashotTest extends TestCase
 
     public function setUp()
     {
+        $this->ROOT_DIR = realpath(__DIR__.'/../../../../../');
+
         $dotenv = new Dotenv($this->ROOT_DIR);
         $dotenv->overload();
 
@@ -51,12 +53,13 @@ class DatashotTest extends TestCase
         $this->bootTestDatabase();
         $this->datashot();
         $this->restoreSnap();
+        $this->downloadSnaps();
         $this->assessRestoredSnap();
     }
 
     private function bootTestDatabase()
     {
-        $this->shell->run("bash tests/assets/init-databases.sh");
+        $this->shell->run("bash {$this->ROOT_DIR}/tests/assets/init-databases.sh");
 
         // $connectionFile = $this->setupConnectionFile();
 
@@ -104,16 +107,18 @@ class DatashotTest extends TestCase
         $commandTester->execute([
             'command'  => $command->getName(),
 
-            // pass arguments to the helper
-            'databases' => [ 'db01' ],
+            'databases' => [ 'db03', 'db01' ],
 
             '--config' => "{$this->ROOT_DIR}/datashot.config.php",
 
-            '--set' => [ 'snappers.datashot.nrows=2' ],
+            // Overriding snapper configuration in time
+            '--set' => [ 'snappers.quick.nrows=2' ],
 
-            '--server' => 'mysql56',
+            '--from' => 'mysql56',
 
             '--snapper' => 'quick',
+
+            '--to' => 'mirror'
 
             // prefix the key with two dashes when passing options,
             // e.g: '--some-option' => 'option_value',
@@ -132,32 +137,60 @@ class DatashotTest extends TestCase
         $commandTester->execute([
             'command'  => $command->getName(),
 
-            'snappers' => [ 'datashot', 'datashot_sql' ],
+            'snaps' => [ 'mirror:/db0*.gz' ],
 
             '--config' => "{$this->ROOT_DIR}/datashot.config.php",
 
-            '--target' => [ 'workbench1' ]
+            '--to' => 'mysql57',
+
+            '--database' => 'replica_{snap}'
         ]);
 
         // the output of the command in the console
         $output = $commandTester->getDisplay();
 
-        $this->assertContains('Done', $output);
+        $this->assertContains('Restoring', $output);
     }
 
     private function assessRestoredSnap()
     {
-        $this->assessDatabase('restored_datashot');
-        $this->assessDatabase('restored_datashot_sql');
+        $this->assessDatabase('replica_db03');
+        $this->assessDatabase('replica_db01');
+    }
+
+    private function downloadSnaps()
+    {
+        $this->downloadSnap('db01');
+        $this->downloadSnap('db03');
+    }
+
+    private function downloadSnap($database)
+    {
+        $command = $this->application->get('cp');
+        $commandTester = new CommandTester($command);
+        $commandTester->execute([
+            'command'  => $command->getName(),
+
+            'src' => "mirror:/{$database}",
+
+            'dst' => "local:replica_{$database}",
+
+            '--config' => "{$this->ROOT_DIR}/datashot.config.php",
+        ]);
+
+        // the output of the command in the console
+        $output = $commandTester->getDisplay();
+
+        $this->assertContains("Transfering {$database}", $output);
     }
 
     private function connect($database)
     {
-        $socket = getenv('WORKBENCH_SOCKET');
-        $host = getenv('WORKBENCH_HOST');
-        $port = getenv('WORKBENCH_PORT');
-        $user = getenv('WORKBENCH_USER');
-        $password = getenv('WORKBENCH_PASSWORD');
+        $socket = getenv('MYSQL57_SOCKET');
+        $host = getenv('MYSQL57_HOST');
+        $port = getenv('MYSQL57_PORT');
+        $user = getenv('MYSQL57_USER');
+        $password = getenv('MYSQL57_PASSWORD');
 
         if (empty($socket)) {
             $dsn = "mysql:host={$host};" .
@@ -235,29 +268,24 @@ class DatashotTest extends TestCase
             'users',
             'logs',
             'news',
-            'hash'
+            'hash',
+            '_before_hook'
         ]);
 
-        if ($this->assertingSqlDatabase()) {
+        // if ($this->assertingSqlDatabase()) {
+        //
+        //     $snapped = file_get_contents("{$this->ASSETS_DIR}/snapped.sql");
+        //
+        //     $this->assertTableExists([
+        //         '_test_before_hook'
+        //     ]);
+        //
+        // } else {
 
-            $snapped = file_get_contents("{$this->ASSETS_DIR}/snapped.sql");
+        // }
 
-            $this->assertTableExists([
-                '_test_before_hook'
-            ]);
+        $snapped = $this->getSqlSnapshot($database);
 
-        } else {
-            $this->shell->run("
-                gunzip < {$this->ASSETS_DIR}/snapped.gz \
-                       > {$this->ASSETS_DIR}/snapped.gunzip
-            ");
-
-            $this->assertTableExists([
-                '_before_hook'
-            ]);
-
-            $snapped = file_get_contents("{$this->ASSETS_DIR}/snapped.gunzip");
-        }
 
         $this->assertContains("'default_pw'", $snapped);
         $this->assertContains('[Before hook]', $snapped);
@@ -285,6 +313,16 @@ class DatashotTest extends TestCase
         $this->assertLogs();
 
         $this->assertHash();
+    }
+
+    private function getSqlSnapshot($database)
+    {
+        $this->shell->run("
+            gunzip < {$this->ROOT_DIR}/snaps/{$database}.gz \
+                   > {$this->ROOT_DIR}/snaps/{$database}.sql \
+        ");
+
+        return file_get_contents("{$this->ROOT_DIR}/snaps/$database.sql");
     }
 
     private function assertingSqlDatabase()

@@ -87,9 +87,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         if ($this->dumpAll()) {
             $this->dumpSchema();
-            // Dumping database schema
-            // $this->dumpTablesDdl();
-            // $this->dumpViews();
         }
 
         if ($this->dumpData()) {
@@ -131,58 +128,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
             PDO::ATTR_TIMEOUT => static::DATABASE_TIMEOUT,
             PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"
         ]);
-    }
-
-    private function dumpTablesDdl()
-    {
-        $this->publish(DatabaseSnapper::DUMPING_DDL);
-
-        $this->eachTable(function ($table) {
-            $this->dumpTableDdl($table);
-        });
-    }
-
-    private function dumpViews()
-    {
-        $this->publish(DatabaseSnapper::DUMPING_VIEWS);
-
-        $this->eachView(function ($view) {
-            $this->dumpViewDdl($view);
-        });
-    }
-
-    private function eachTable($closure)
-    {
-        $results = $this->pdo->query("
-            SELECT table_name
-            FROM information_schema.tables
-            where table_schema='{$this->database}' AND
-                  table_type = 'BASE TABLE'
-        ");
-
-        foreach ($results as $res) {
-
-            $table = $res->table_name;
-
-            call_user_func($closure, $table);
-        }
-    }
-
-    private function eachView($closure)
-    {
-        $results = $this->pdo->query("
-            SELECT table_name
-            FROM information_schema.tables
-            where table_schema='{$this->database}' AND
-                  table_type = 'VIEW'
-        ");
-
-        foreach ($results as $res) {
-
-            $view = $res->table_name;
-
-            call_user_func($closure, $view);
-        }
     }
 
     private function buildWhereClause($table)
@@ -236,6 +181,23 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         });
     }
 
+    private function eachTable($closure)
+    {
+        $results = $this->pdo->query("
+            SELECT table_name
+            FROM information_schema.tables
+            where table_schema='{$this->database}' AND
+                  table_type = 'BASE TABLE'
+        ");
+
+        foreach ($results as $res) {
+
+            $table = $res->table_name;
+
+            call_user_func($closure, $table);
+        }
+    }
+
     private function snapping()
     {
         $this->publish(DatabaseSnapper::SNAPPING);
@@ -262,56 +224,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $command = $this->resolveBoundedParams($command);
 
         $this->output->writeln($command);
-    }
-
-    private function dumpTableDdl($table)
-    {
-        $this->publish(DatabaseSnapper::DUMPING_TABLE_DDL, [ 'table' => $table ]);
-
-        $ddl = $this->getCreateTableDdl($table);
-
-        $this->output->comment("DDL for \"{$table}\" table ");
-        $this->output->message("Creating table {$table}...");
-        $this->output->command($ddl);
-        $this->output->newLine(2);
-    }
-
-    private function dumpViewDdl($view)
-    {
-        $this->publish(DatabaseSnapper::DUMPING_VIEW, [ 'view' => $view ]);
-
-        $ddl = $this->getCreateViewDdl($view);
-
-        $this->output->comment("DDL for \"{$view}\" view");
-        $this->output->message("Creating view {$view}...");
-        $this->output->command($ddl);
-        $this->output->newLine(2);
-    }
-
-    private function getCreateTableDdl($table)
-    {
-        $res = $this->first("SHOW CREATE TABLE {$table}");
-
-        if ($res == FALSE) {
-            throw new RuntimeException(
-                "Can't get create table ddl for \"{$table}\" table"
-            );
-        }
-
-        return $res['Create Table'];
-    }
-
-    private function getCreateViewDdl($table)
-    {
-        $res = $this->first("SHOW CREATE VIEW {$table}");
-
-        if ($res == FALSE) {
-            throw new RuntimeException(
-                "Can't get create table ddl for \"{$table}\" view"
-            );
-        }
-
-        return $this->removeDefiner($res['Create View']);
     }
 
     private function first($query)
@@ -421,165 +333,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         return $columns;
     }
 
-    private function removeDefiner($command)
-    {
-        return preg_replace("/DEFINER=`[^`]+`@`[^`]+`/", 'DEFINER=CURRENT_USER', $command);
-    }
-
-    private function dumpTriggers()
-    {
-        $this->publish(DatabaseSnapper::DUMPING_TRIGGERS);
-
-        $this->eachTriggers(function ($trigger) {
-            $this->dumpTrigger($trigger);
-        });
-    }
-
-    private function eachTriggers($closure)
-    {
-        $results = $this->pdo->query("
-            SHOW TRIGGERS FROM `{$this->database}`
-        ");
-
-        foreach ($results as $res) {
-
-            $trigger = $res->Trigger;
-
-            call_user_func($closure, $trigger);
-        }
-    }
-
-    private function dumpTrigger($trigger)
-    {
-        $this->publish(DatabaseSnapper::DUMPING_TRIGGER, [
-            'trigger' => $trigger
-        ]);
-
-        $cmd = $this->getCreateTigger($trigger);
-
-        $this->output->comment("Trigger {$trigger}");
-        $this->output->message("Creating {$trigger} trigger...");
-        $this->output->command("DROP TRIGGER IF EXISTS `{$trigger}`");
-        $this->output->writeln($cmd);
-        $this->output->newLine(2);
-    }
-
-    private function getCreateTigger($trigger)
-    {
-        $row = $this->first("SHOW CREATE TRIGGER `{$trigger}`");
-
-        $statement = $row['SQL Original Statement'];
-
-        $statement = $this->removeDefiner($statement);
-
-        return "DELIMITER ;;" . PHP_EOL . $statement . ";;" . PHP_EOL .
-            "DELIMITER ;";
-    }
-
-    private function dumpProcedures()
-    {
-        $this->publish(DatabaseSnapper::DUMPING_PROCEDURES);
-
-        $this->eachProcedures(function ($procedure) {
-            $this->dumpProcedure($procedure);
-        });
-    }
-
-    private function eachProcedures($closure)
-    {
-        $results = $this->pdo->query("
-            SELECT SPECIFIC_NAME AS procedure_name
-            FROM INFORMATION_SCHEMA.ROUTINES
-            WHERE ROUTINE_TYPE='PROCEDURE' AND ROUTINE_SCHEMA='{$this->database}'
-        ");
-
-        foreach ($results as $res) {
-
-            $procedure = $res->procedure_name;
-
-            call_user_func($closure, $procedure);
-        }
-    }
-
-    private function dumpProcedure($procedure)
-    {
-        $this->publish(DatabaseSnapper::DUMPING_PROCEDURE, [
-            'procedure' => $procedure
-        ]);
-
-        $cmd = $this->getCreateProcedure($procedure);
-
-        $this->output->comment("Procedure '{$procedure}'");
-        $this->output->message("Creating {$procedure} procedure...");
-        $this->output->command("DROP PROCEDURE IF EXISTS `{$procedure}`");
-        $this->output->writeln($cmd);
-        $this->output->newLine(2);
-    }
-
-    private function getCreateProcedure($procedure)
-    {
-        $row = $this->first("SHOW CREATE PROCEDURE `{$procedure}`");
-
-        $statement = $row['Create Procedure'];
-
-        $statement = $this->removeDefiner($statement);
-
-        return "DELIMITER ;;" . PHP_EOL . $statement . ";;" . PHP_EOL .
-            "DELIMITER ;";
-    }
-
-    private function dumpFunctions()
-    {
-        $this->publish(DatabaseSnapper::DUMPING_FUNCTIONS);
-
-        $this->eachFunctions(function ($function) {
-            $this->dumpFunction($function);
-        });
-    }
-
-    private function eachFunctions($closure)
-    {
-        $results = $this->pdo->query("
-            SELECT SPECIFIC_NAME AS function_name
-            FROM INFORMATION_SCHEMA.ROUTINES
-            WHERE ROUTINE_TYPE='FUNCTION' AND ROUTINE_SCHEMA='{$this->database}'
-        ");
-
-        foreach ($results as $res) {
-
-            $function = $res->function_name;
-
-            call_user_func($closure, $function);
-        }
-    }
-
-    private function dumpFunction($function)
-    {
-        $this->publish(DatabaseSnapper::DUMPING_FUNCTION, [
-            'function' => $function
-        ]);
-
-        $cmd = $this->getCreateFunction($function);
-
-        $this->output->comment("Function '{$function}'");
-        $this->output->message("Creating {$function} function...");
-        $this->output->command("DROP FUNCTION IF EXISTS `{$function}`");
-        $this->output->writeln($cmd);
-        $this->output->newLine(2);
-    }
-
-    private function getCreateFunction($function)
-    {
-        $row = $this->first("SHOW CREATE FUNCTION `{$function}`");
-
-        $statement = $row['Create Function'];
-
-        $statement = $this->removeDefiner($statement);
-
-        return "DELIMITER ;;" . PHP_EOL . $statement . ";;" . PHP_EOL .
-               "DELIMITER ;";
-    }
-
     private function flushFileHeader()
     {
         $this->output->comment("charset {$this->database->getCharset()} offset {$this->database->getCollation()}");
@@ -642,6 +395,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
     private function dumpActions()
     {
+        $this->publish(DatabaseSnapper::DUMPING_ACTIONS);
         $this->output->comment("Restoring actions");
 
         // Close and flush the current writings for mysql client
@@ -659,10 +413,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
                 --quick \
                 {$this->database}
         ");
-
-        // $this->dumpTriggers();
-        // $this->dumpProcedures();
-        // $this->dumpFunctions();
     }
 
     private function publish($event, array $data = [])

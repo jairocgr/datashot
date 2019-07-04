@@ -385,7 +385,7 @@ class MysqlDatabaseServer implements DatabaseServer
             $sourceDatabase
         ]);
 
-        $this->shell->run("        
+        $this->shell->run("
             mysqldump {$args} \
              | sed -E 's/DEFINER=`[^`]+`@`[^`]+`/DEFINER=CURRENT_USER/g' \
              | mysql --defaults-file={$target->connectionFile} --unbuffered {$destinationDatabase}
@@ -584,21 +584,15 @@ class MysqlDatabaseServer implements DatabaseServer
             $this->setupConnectionFile();
         }
 
-        $input = $this->putToTemporaryFile($input);
-
-        $cmd = "cat {$input} | ";
-
         if ($compressedInput) {
-            $cmd .= "gunzip | ";
+            $cmd = "gunzip | ";
+        } else {
+            $cmd = "cat -- | ";
         }
 
         $cmd .= "mysql --defaults-file={$this->connectionFile} -n --table {$database}";
 
-        $out = $this->shell->run($cmd);
-
-        @unlink($input);
-
-        return $out;
+        return $this->shell->run($cmd, $input);
     }
 
     private function connectionFileExists()
@@ -633,7 +627,7 @@ class MysqlDatabaseServer implements DatabaseServer
     private function getSchemata($database)
     {
         return $this->fetch("
-            SELECT * FROM information_schema.SCHEMATA S 
+            SELECT * FROM information_schema.SCHEMATA S
             WHERE schema_name = '{$database}'
         ");
     }
@@ -714,25 +708,5 @@ class MysqlDatabaseServer implements DatabaseServer
     private function wrap($patterns)
     {
         return is_array($patterns) ? $patterns : [ $patterns ];
-    }
-
-    private function putToTemporaryFile($input)
-    {
-        $temp = $this->genTempFilePath();
-
-        register_shutdown_function(function () use ($temp) {
-            // temp file cleanup
-            @unlink($temp);
-        });
-
-        $sucess = file_put_contents($temp, $input);
-
-        if ($sucess === FALSE) {
-            throw new RuntimeException(
-                "Can't write to temporary file \"{$temp}\"!"
-            );
-        }
-
-        return $temp;
     }
 }
