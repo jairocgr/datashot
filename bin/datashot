@@ -1,0 +1,7 @@
+#!/usr/bin/env php
+<?php
+
+include __DIR__ . '/../vendor/autoload.php';
+
+$app = new \Datashot\Console\DatashotApp();
+$app->run();
