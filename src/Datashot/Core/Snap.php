@@ -217,8 +217,8 @@ class Snap implements RepositoryItem
     {
         $resource = $this->read();
 
-        $piece = $this->fread($resource, 1024);
+        $piece = $this->fread($resource, 2048);
 
-        return gzdecode($piece);
+        return strval(@gzdecode($piece));
     }
 }
