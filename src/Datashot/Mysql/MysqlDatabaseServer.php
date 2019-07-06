@@ -584,15 +584,41 @@ class MysqlDatabaseServer implements DatabaseServer
             $this->setupConnectionFile();
         }
 
+        $input = $this->putToTemporaryFile($input);
+
+        $cmd = "cat {$input} | ";
+
         if ($compressedInput) {
-            $cmd = "gunzip | ";
-        } else {
-            $cmd = "cat -- | ";
+            $cmd .= "gunzip | ";
         }
 
         $cmd .= "mysql --defaults-file={$this->connectionFile} -n --table {$database}";
 
-        return $this->shell->run($cmd, $input);
+        $out = $this->shell->run($cmd);
+
+        @unlink($input);
+
+        return $out;
+    }
+
+    private function putToTemporaryFile($input)
+    {
+        $temp = $this->genTempFilePath();
+
+        register_shutdown_function(function () use ($temp) {
+            // temp file cleanup
+            @unlink($temp);
+        });
+
+        $sucess = file_put_contents($temp, $input);
+
+        if ($sucess === FALSE) {
+            throw new RuntimeException(
+                "Can't write to temporary file \"{$temp}\"!"
+            );
+        }
+
+        return $temp;
     }
 
     private function connectionFileExists()
