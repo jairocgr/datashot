@@ -610,12 +610,30 @@ class MysqlDatabaseServer implements DatabaseServer
             @unlink($temp);
         });
 
-        $sucess = file_put_contents($temp, $input);
+        $handle = fopen($temp, 'w');
 
-        if ($sucess === FALSE) {
+        if ($handle === FALSE) {
             throw new RuntimeException(
                 "Can't write to temporary file \"{$temp}\"!"
             );
+        }
+
+        while (!feof($input)) {
+          $data = fread($input, 4096);
+
+          if ($data === FALSE) {
+              throw new RuntimeException(
+                  "Can't read resouce!"
+              );
+          }
+
+          $sucess = fwrite($handle, $data);
+
+          if ($sucess === FALSE) {
+              throw new RuntimeException(
+                  "Can't write to temporary file \"{$temp}\"!"
+              );
+          }
         }
 
         return $temp;
