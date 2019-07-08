@@ -58,10 +58,31 @@ function createdb {
     | hide_passwd_warn
 }
 
+function dropdb {
+  local mysql_version=$1
+  local dbname=$2
+
+  local host="$(env MYSQL${mysql_version}_HOST)"
+  local port="$(env MYSQL${mysql_version}_PORT)"
+  local user="$(env MYSQL${mysql_version}_USER)"
+  local passwd="$(env MYSQL${mysql_version}_PASSWORD)"
+
+  echo "Droping $dbname at mysql$mysql_version..."
+
+  echo "DROP DATABASE IF EXISTS $dbname" \
+    | mysql -h $host -P $port -u $user -p$passwd 2>&1 \
+    | hide_passwd_warn
+}
+
 function createdbs {
   createdb 56 db01 utf8 utf8_general_ci
   createdb 56 db02 utf8 utf8_general_ci
   createdb 56 db03 latin1 latin1_swedish_ci
+
+  dropdb 57 replica_db03
+  dropdb 57 replica_db01
+  dropdb 57 replica
+  dropdb 57 db03
 
   # createdb 57 db01 utf8 utf8_general_ci
   # createdb 57 db02 utf8 utf8_general_ci

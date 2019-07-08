@@ -51,6 +51,7 @@ class DatashotTest extends TestCase
     public function test()
     {
         $this->bootTestDatabase();
+        $this->replicate();
         $this->datashot();
         $this->restoreSnap();
         $this->downloadSnaps();
@@ -98,6 +99,62 @@ class DatashotTest extends TestCase
         );
 
         return $connectionFile;
+    }
+
+    private function replicate()
+    {
+        $command = $this->application->get('replicate');
+        $commandTester = new CommandTester($command);
+        $commandTester->execute([
+            'command'  => $command->getName(),
+
+            'databases' => [ 'db03' ],
+
+            '--config' => "{$this->ROOT_DIR}/datashot.config.php",
+
+            '--from' => 'mysql56',
+
+            '--to' => 'mysql57'
+
+            // prefix the key with two dashes when passing options,
+            // e.g: '--some-option' => 'option_value',
+        ]);
+
+        // the output of the command in the console
+        $output = $commandTester->getDisplay();
+
+        $this->assertContains('Replicating', $output);
+
+        $this->checkReplicatedDatabase('db03');
+    }
+
+    private function checkReplicatedDatabase($database)
+    {
+        $this->connect($database);
+
+        $this->assertTableExists([
+            'tenants',
+            'users',
+            'logs',
+            'news',
+            'hash'
+        ]);
+
+        $this->assertTableRows([
+            'tenants' => 4,
+            'users' => 11,
+            'logs' => 5,
+            'news' => 4,
+            'hash' => 4
+        ]);
+
+        $this->assertViewExists([ 'user_log' ]);
+
+        $this->assertFunctionExists([
+            'hello', 'hi'
+        ]);
+
+        $this->assertProcedureExists([ 'user_count' ]);
     }
 
     private function datashot()
