@@ -1,7 +1,17 @@
 #!/usr/bin/env php
 <?php
 
-include __DIR__ . '/../vendor/autoload.php';
+$paths = [
+    __DIR__.'/../vendor/autoload.php', // locally
+    __DIR__.'/../../../autoload.php' // dependency
+];
+
+foreach ($paths as $path) {
+    if (file_exists($path)) {
+        require_once $path;
+        break;
+    }
+}
 
 $app = new \Datashot\Console\DatashotApp();
 $app->run();
