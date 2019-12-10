@@ -385,12 +385,40 @@ class MysqlDatabaseServer implements DatabaseServer
             $sourceDatabase
         ]);
 
+        $intermediate = $this->genTempIntermediateFile();
+
         $this->shell->run("
             mysqldump {$args} \
              | sed -E 's/DEFINER=`[^`]+`@`[^`]+`/DEFINER=CURRENT_USER/g' \
-             | mysql --defaults-file={$target->connectionFile} --unbuffered {$destinationDatabase}
+             | gzip \
+             > {$intermediate}
         ");
 
+        $this->shell->run("
+            gunzip < {$intermediate} \
+                | mysql --defaults-file={$target->connectionFile} {$destinationDatabase}
+        ");
+
+        $this->shell->run("rm -rf {$intermediate}");
+    }
+
+    private function genTempIntermediateFile()
+    {
+        $intermediate =  $this->genTempFilePath();
+
+        if (touch($intermediate) === FALSE) {
+            throw new RuntimeException(
+                "Could not create intermediate dump file " .
+                "\"{$intermediate}\"!"
+            );
+        }
+
+        register_shutdown_function(function () use ($intermediate) {
+            // connection file clean-up
+            @unlink($intermediate);
+        });
+
+        return $intermediate;
     }
 
     /**
@@ -464,7 +492,7 @@ class MysqlDatabaseServer implements DatabaseServer
 
     private function genTempFilePath()
     {
-        return tempnam(sys_get_temp_dir(), '.my.cnf.');
+        return tempnam(sys_get_temp_dir(), '.datapatch.');
     }
 
     private function setupConnectionFile()
