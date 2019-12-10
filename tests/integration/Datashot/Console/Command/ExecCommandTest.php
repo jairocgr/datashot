@@ -40,14 +40,14 @@ class ExecCommandTest extends TestCase
 
     public function testHealthCheck()
     {
-        $this->shell->run("php bin/datashot exec db01 --at mysql56 --command 'SELECT 1'");
+        $this->shell->run("php bin/datashot exec db01 --at mysql56 -f --command 'SELECT 1'");
         $this->assertTrue(TRUE);
     }
 
     public function testInsertCommand()
     {
         $this->shell->run("
-            php bin/datashot exec db01 --at mysql56 \
+            php bin/datashot exec db01 --at mysql56 -f \
                 --command \"INSERT INTO tenants (id, handle, name) VALUES (300, 'tenant300', 'Test Tenant 300 Çñ')\"
         ");
 
@@ -59,7 +59,7 @@ class ExecCommandTest extends TestCase
     public function testAcrossDatabasesInsertCommand()
     {
         $this->shell->run("
-            php bin/datashot exec db0* --at mysql56 \
+            php bin/datashot exec db0* --at mysql56 -f \
                 --command \"INSERT INTO tenants (id, handle, name) VALUES (500, 'tenant500', 'Test Tenant 500 Çñ')\"
         ");
 
@@ -79,7 +79,7 @@ class ExecCommandTest extends TestCase
             cat tests/assets/commands.sql \
               | gzip \
               | gunzip \
-              | php bin/datashot exec db01 --at mysql56
+              | php bin/datashot exec db01 --at mysql56 -f
         ");
 
         $res = $this->databases->queryFirst('mysql56', 'db01', "SELECT * FROM actions WHERE id = 102");
@@ -89,7 +89,7 @@ class ExecCommandTest extends TestCase
     public function testInputRedirection()
     {
         $this->shell->run("
-            php bin/datashot exec db01 --at mysql56 \
+            php bin/datashot exec db01 --at mysql56 -f \
               < tests/assets/commands.sql
         ");
 
@@ -100,7 +100,7 @@ class ExecCommandTest extends TestCase
     public function testAcrossDatabasesInsertFile()
     {
         $this->shell->run("
-            php bin/datashot exec db0* --at mysql56 \
+            php bin/datashot exec db0* --at mysql56 -f \
               --script tests/assets/commands.sql
         ");
 
