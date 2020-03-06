@@ -1,19 +1,10 @@
-# datashot Database Snapper
+# Datashot Database Snapper
 
-A tool for taking partial and minified database snapshot por testing and
+A tool for taking partial and minified database snapshots for testing and
 development purpose.
 
-With **datashot**, instead of taking a full database dump, you can filter
-which rows you want to dump in order to come up with a downsized database
-snapshot.
-
-## Requirements
-
-To install and run **datashot** you must have:
-
- * PHP >= 5.6 with PDO extension
- * `zlib` PHP extension for gzip compression
- * [Composer](https://getcomposer.org/) dependency manager
+Instead of taking a full database dump, you can filter which rows you want to
+dump in order to come up with a downsized database snapshot.
 
 ## Installing
 
@@ -23,122 +14,166 @@ Install it as a regular package via composer:
 
 ## Usage
 
-After requiring **datashot**, you can call it as a php command line tool:
+You can call it as a command line tool:
 
-    php vendor/bin/snapper --help
+    php vendor/bin/datashot --help
 
-To take a database snapshot, call:
+## Getting Started
 
-    php vendor/bin/datashot --specs default
+With `datashot` you can filter which rows you want to dump to come up with a
+much smaller database dump.
 
-**datashot** will lookup for a file named `datashot.config.php` inside the
-current directory and search for the `default` configuration array:
+You can reduce ginormous multi-gigabyte databases in to a small gziped file
+ready to be restored in to staging and local develoment environments.
+
+This kind of power come up handy for troubleshooting production bugs and all
+arround better development experience with real life data that best reflects
+your application usage than a mocked or seeded schema.
+
+With `datashot` you can for instance take a database dump with only the
+orders from the current quarter.
+
+You can also perform other operations like:
+
+ * Fully `replicate` databases from a host to another,
+ * `restore` existant dumps to a database hosts, and
+ * upload/download dumps from a SFTP or S3 repositories via `cp` command.
+
+### Configuration
+
+The first step is to setup the `datashot.config.php` file in the root of your
+application repository.
+
+This is the configuration file where you set the database hosts, passwords and
+the _SQL_ `WHERE` clauses in order to slice the database down.
+
+> For a more complete and commented and configuration file see the sample
+> `datashot.config.php` file inside this repository root directory
+
+#### Database Hosts
+
+You have to configure all your database in order to be able to work with it.
 
 ```php
 return [
 
-  // datashot's configuration file named "datashot.config.php"
+  'database_servers' => [
 
-  // A configuration array entry
-  'default' => [
-    'driver' => 'mysql', // currently, mysql only
+    // A database server called 'live1'
+    'live1' => [
+      // Only mysql for now, maby postgres in the future
+      'driver'   => 'mysql',
 
-    'host' => 'localhost',
-    'port' => '3306',
+      // The env function will read from the environment or .env file
+      'socket'   => env('MYSQL56_SOCKET', ''),
+      'host'     => env('MYSQL56_HOST', 'localhost'),
+      'port'     => env('MYSQL56_PORT', 3306),
 
-    // If connecting via unix domain socket
-    // 'unix_socket' => '/var/run/mysqld/mysqld.sock',
+      'user'     => env('MYSQL56_USER', 'root'),
+      'password' => env('MYSQL56_PASSWORD', 'root'),
 
-    'database'  => '_my_crm_app',
-    'user'  => 'root',
-    'password'  => 'VOc90YngU5',
-
-    'charset'   => 'utf8',
-    'collation' => 'utf8_general_ci',
-
-    'triggers'  => TRUE, // Dump the triggers
-    'routines'  => TRUE, // Bring the procedures and functions
-
-    // Set the directory where the snapshots will be placed, if ommited
-    // the current dir will be used
-    'output_dir' => 'storage/snaps/',
-
-    // By default the configuration name with .gz|sql extension will be
-    // used as the snapshot file name
-    'output_file' => 'my_crm_devsnap.gz',
-
-    // Compress the database snapshot (via gzip)
-    'compress' => TRUE,
-
-    // WHERE clauses specification to take a partial table dump
-    //
-    // datashot will dump only the rows matched by the given WHERE condition
-    // Omitted tables will be dumped fully
-    'wheres' => [
-      // Dont bring deleted users
-      'user' => 'deleted IS FALSE',
-
-      // Bring the last 1000 log entries
-      'user_log' => 'true ORDER BY logid LIMIT 1000',
-
-      // You can also use closures to build and return the where clause
-      // to bring sales made in the last two months
-      'sales' => function ($pdo, $conf) {
-        # $pdo ⟶ connection to the target database in case you want to
-        # make queries before assemble the WHERE
-        #
-        # $conf ⟶ the current configuration array defined in the configuration
-        # file
-
-        $now = new DateTime();
-        $interval = DateInterval::createFromDateString('2 months');
-
-        $cutoff = $now->sub($interval);
-
-        $cutoff = $cutoff->format('Y-m-d');
-
-        // WHERE sale_date greater than two months ago
-        return "sale_date > {$cutoff}";
-      }
+      // If you mark it as a 'production' server, a confirmation question
+      // will be pronted in every execution and no drop action will
+      // be performed for safety reasons
+      'production' => TRUE
     ]
+];
+```
 
-    // Optional generic/fallback where clause for all tables
-    // 'where' => 'true ORDER BY 1 LIMIT 10000'
+#### Repositories
+
+You have to set the repositories where you will store the dumps.
+
+```php
+return [
+
+  'repositories' => [
+    'local' => [
+      'driver' => 'fs',
+      'path' => __DIR__ . '/snaps' // Local snaps directory
+    ],
+
+    'remote' => [
+      'driver'     => 's3',
+      'bucket'     => env('S3_BUCKET'),
+      'region'     => env('S3_REGION'),
+      // 'profile'    => 'remote',
+      'access_key' => env('S3_ACESS_KEY'),
+      'secret_key' => env('S3_SECRET_ACESS_KEY'),
+      'base_path'  => 'snaps' // Remote path will be like s3://bucket-name/snaps
+    ],
   ],
 
-  'sixmonths' => [
-    // If you call `vendor/bin/datashot --specs sixmonths` it will be using this
-    // configuration instead
-    //
-    // ALL configuration entries inherit from the 'default' array
-    // You should override only what needs to be overwritten
-    'wheres' => [
+];
+```
 
-      // Override the WHERE clause for the sales table to bring sales from the
-      // last six months, instead of the default last two months
-      'sales' => function () {
-        // ...
+#### Snappers
 
-        $interval = DateInterval::createFromDateString('6 months');
+The snappers tell `datashot` how to slice down the database.
 
-        // ...
+```php
+return [
 
-        // WHERE sale_date greater than six months
-        return "sale_date > {$cutoff}";
-      }
-    ]
+  'snappers' => [
+     'quick' => [
+
+       // If you want to snap the rows only
+       // 'data_only' => TRUE,
+
+       // If you wanna dump only the ddl, triggers, functions, etc.
+       // 'no_data' => TRUE,
+
+       // Custom made user-defined property for later interpolation
+       'cutoff' => '(NOW() - INTERVAL 3 MONTH)',
+
+       // Table-specific where used to filter the rows witch will be dumped
+       'wheres' => [
+
+         // Interpolate the 'cutoff' parameter in the where clause for the
+         // "logs" table
+         'logs' => "created_at > '{cutoff}'",
+
+         // Bring only the active users
+         'users' => 'active = TRUE',
+       ],
+
+     ]
   ]
 
 ];
 ```
 
+### Your First Snapshot
+
+To take a database snapshot using the previously configured file:
+
+    php vendor/bin/datashot snap myerp --from live1 --to remote:quick_snap --snapper quick
+
+Then `datashot` will take a proper `mysqldump` from the scheme `myerp` that
+is running inside the production server `live1` and it will be using the `quick`
+snapper to cut the `logs` and `users` table down.
+
+Then database will upload a file called `quick.gz` to the remote s3 repository
+called `remote` previously configured in the `datashot.config.php` configuration
+file.
+
 ## Restoring Snapshots
 
-With the snapshot file in hands, you can restore it as a regular database dump:
+After downloading the snapshot file to your local filesystem you can always
+restorit like a regular gziped plain _SQL_ dump file:
 
-```
-gzip < storage/snaps/my_crm_devsnap.gz | mysql -h localhost dbname
-```
+
+    gzip < path/to/quick.gz | mysql -h localhost myerp
+
+
+But you can also use `datashot` to download and `restore` your snapshots:
+
+  php vendor/bin/datashot restore remote:quick --to local --database myerp_dev
+
+Than the command above will download the `quick` snapshot previously taken,
+restore to the `local` databaser server (must be configured first) and will name
+the restore schema as `myerp_dev`.
+
 
 ## Hat Tipping
 
