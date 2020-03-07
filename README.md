@@ -6,6 +6,16 @@ development purpose.
 Instead of taking a full database dump, you can filter which rows you want to
 dump in order to come up with a downsized database snapshot.
 
+## Requirements
+
+To install and run **datashot** you must have:
+
+ * PHP >= 5.6 with PDO extension
+ * `zlib` PHP extension for gzip compression
+ * MySQL client (`mysql` and `mysqldump` on path)
+ * Gzip on path
+ * [Composer](https://getcomposer.org/) dependency manager
+
 ## Installing
 
 Install it as a regular package via composer:
@@ -154,8 +164,8 @@ Then `datashot` will take a proper `mysqldump` from the scheme `myerp` that
 is running inside the production server `live1` and it will be using the `quick`
 snapper to cut the `logs` and `users` table down.
 
-Then database will upload a file called `quick.gz` to the remote s3 repository
-called `remote` previously configured in the `datashot.config.php` configuration
+Then it will upload a file called `quick.gz` to the remote s3 repository called
+`remote` previously configured in the `datashot.config.php` configuration
 file.
 
 ## Restoring Snapshots
@@ -167,7 +177,7 @@ You can use `datashot` to download and `restore` your snapshots:
 The command above will download the `quick` snapshot previously taken, restore
 the dump as `myerp_dev` schema at `dev` databaser server.
 
-You can always restore the snapshot like a regular gziped plain _SQL_ dump file:
+You can also restore the snapshot like a regular gziped _SQL_ dump file:
 
     gunzip < path/to/quick.gz | mysql -h localhost myerp
 
