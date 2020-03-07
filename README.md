@@ -30,8 +30,8 @@ This kind of power come up handy for troubleshooting production bugs and all
 arround better development experience with real life data that best reflects
 your application usage than a mocked or seeded schema.
 
-With `datashot` you can for instance take a database dump with only the
-orders from the current quarter.
+With `datashot` you can for instance take a database dump with only the orders
+from the current quarter.
 
 You can also perform other operations like:
 
@@ -77,6 +77,7 @@ return [
       // be performed for safety reasons
       'production' => TRUE
     ]
+  ]
 ];
 ```
 
@@ -159,21 +160,16 @@ file.
 
 ## Restoring Snapshots
 
-After downloading the snapshot file to your local filesystem you can always
-restorit like a regular gziped plain _SQL_ dump file:
+You can use `datashot` to download and `restore` your snapshots:
 
+    php vendor/bin/datashot restore remote:quick --to dev --database myerp_dev
 
-    gzip < path/to/quick.gz | mysql -h localhost myerp
+The command above will download the `quick` snapshot previously taken, restore
+the dump as `myerp_dev` schema at `dev` databaser server.
 
+You can always restore the snapshot like a regular gziped plain _SQL_ dump file:
 
-But you can also use `datashot` to download and `restore` your snapshots:
-
-  php vendor/bin/datashot restore remote:quick --to local --database myerp_dev
-
-Than the command above will download the `quick` snapshot previously taken,
-restore to the `local` databaser server (must be configured first) and will name
-the restore schema as `myerp_dev`.
-
+    gunzip < path/to/quick.gz | mysql -h localhost myerp
 
 ## Hat Tipping
 
