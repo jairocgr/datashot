@@ -79,7 +79,7 @@ class ExecCommandTest extends TestCase
             cat tests/assets/commands.sql \
               | gzip \
               | gunzip \
-              | php bin/datashot exec db01 --at mysql56 -f
+              | php bin/datashot exec db01 --at mysql56 -f -n
         ");
 
         $res = $this->databases->queryFirst('mysql56', 'db01', "SELECT * FROM actions WHERE id = 102");
@@ -89,7 +89,7 @@ class ExecCommandTest extends TestCase
     public function testInputRedirection()
     {
         $this->shell->run("
-            php bin/datashot exec db01 --at mysql56 -f \
+            php bin/datashot exec db01 --at mysql56 -f -n \
               < tests/assets/commands.sql
         ");
 

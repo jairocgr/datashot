@@ -2,8 +2,10 @@
 
 namespace Datashot\Repository;
 
+use Datashot\Core\Snap;
 use Datashot\Lang\Asserter;
 use Datashot\Lang\DataBag;
+use Datashot\Lang\TempFile;
 use League\Flysystem\Filesystem;
 use League\Flysystem\Sftp\SftpAdapter;
 
@@ -124,5 +126,18 @@ class SftpRepository extends FilesystemRepo
                 'repo' => $this
             ]);
         });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    function getPhysicalPath(Snap $snap)
+    {
+        $stream = $snap->read();
+
+        $tmp = new TempFile();
+        $tmp->sink($stream);
+
+        return $tmp->getPath();
     }
 }

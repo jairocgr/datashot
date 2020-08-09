@@ -9,8 +9,11 @@ use Datashot\Core\EventBus;
 use Datashot\Core\Shell;
 use Datashot\Core\Snap;
 use Datashot\Core\SnapperConfiguration;
+use Datashot\Datashot;
 use Datashot\Lang\Asserter;
 use Datashot\Lang\DataBag;
+use Datashot\Lang\TempFile;
+use Datashot\Mysql\Cli\MysqlCliClient;
 use InvalidArgumentException;
 use PDO;
 use RuntimeException;
@@ -85,12 +88,28 @@ class MysqlDatabaseServer implements DatabaseServer
     private $connectionFile;
 
     /**
+     * @var string
+     */
+    private $sslMode;
+
+    /**
      * @var Database[]
      */
     private $databases;
 
-    public function __construct($name, DataBag $data, $bus, $shell)
+    /**
+     * @var Datashot
+     */
+    private $datashot;
+
+    /**
+     * @var MysqlCliClient
+     */
+    private $mysql;
+
+    public function __construct($datashot, $name, DataBag $data, $bus, $shell)
     {
+        $this->datashot = $datashot;
         $this->name = $this->filterName($name);
         $this->bus = $bus;
         $this->data = $data;
@@ -102,6 +121,7 @@ class MysqlDatabaseServer implements DatabaseServer
         $this->user = $this->extractUser($data);
         $this->password = $this->extractPassword($data);
         $this->production = $this->extractProduction($data);
+        $this->sslMode = $this->extractSslMode($data);
 
 
         if (empty($this->socket) && empty($this->host)) {
@@ -123,6 +143,8 @@ class MysqlDatabaseServer implements DatabaseServer
                 );
             }
         }
+
+        $this->mysql = new MysqlCliClient($this, $this->shell);
     }
 
     /**
@@ -233,6 +255,21 @@ class MysqlDatabaseServer implements DatabaseServer
         });
     }
 
+    private function extractSslMode(DataBag $data)
+    {
+        return $data->extract('ssl-mode', 'DISABLED', function ($value, Asserter $a) {
+
+            if ($a->stringfyable($value) && (empty(strval($value)) || $a->notEmptyString($value))) {
+                return strval($value);
+            }
+
+            $a->raise("Invalid ssl-mode :value on :server server!", [
+                'value' => $value,
+                'server' => $this
+            ]);
+        });
+    }
+
     private function extractProduction(DataBag $data)
     {
         return $data->extract('production', FALSE, function ($value, Asserter $a) {
@@ -261,6 +298,15 @@ class MysqlDatabaseServer implements DatabaseServer
                 'server' => $this
             ]);
         });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    function canReplicateTo(DatabaseServer $target)
+    {
+        return $target instanceof MysqlDatabaseServer &&
+               $target->isDevelopment();
     }
 
     /**
@@ -304,7 +350,7 @@ class MysqlDatabaseServer implements DatabaseServer
     /**
      * @return DatabaseSnapper
      */
-    public function getSnapper(SnapperConfiguration $snapper)
+    public function getSnapper(SnapperConfiguration $snapper = null)
     {
         return new MysqlDatabaseSnapper($this, $this->bus, $this->shell, $snapper);
     }
@@ -345,80 +391,6 @@ class MysqlDatabaseServer implements DatabaseServer
         }
 
         return $found;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function replicate(Database $sourceDatabase, DatabaseServer $target, $destinationDatabase = NULL)
-    {
-        $this->checkIfWeCanWorkWith($target);
-
-        $destinationDatabase = empty($destinationDatabase) ? $sourceDatabase->getName() : $destinationDatabase;
-
-        if ($this->connectionFileNotCreated()) {
-            $this->setupConnectionFile();
-        }
-
-        $source = $this->getSchemata($sourceDatabase);
-
-        $target->createDatabase($destinationDatabase, new DataBag([
-            'charset' => $source->DEFAULT_CHARACTER_SET_NAME,
-            'collation' => $source->DEFAULT_COLLATION_NAME
-        ]));
-
-        if ($target->connectionFileNotCreated()) {
-            $target->setupConnectionFile();
-        }
-
-        $args = implode(' ', [
-            " --defaults-file={$this->connectionFile}",
-            "--single-transaction",
-            "--quick",
-            "--no-tablespaces",
-            "--disable-keys",
-            "--no-autocommit",
-            "--lock-tables=false",
-            "--skip-comments",
-            "--routines",
-            "--triggers",
-            $sourceDatabase
-        ]);
-
-        $intermediate = $this->genTempIntermediateFile();
-
-        $this->shell->run("
-            mysqldump {$args} \
-             | sed -E 's/DEFINER=`[^`]+`@`[^`]+`/DEFINER=CURRENT_USER/g' \
-             | gzip \
-             > {$intermediate}
-        ");
-
-        $this->shell->run("
-            gunzip < {$intermediate} \
-                | mysql --defaults-file={$target->connectionFile} {$destinationDatabase}
-        ");
-
-        $this->shell->run("rm -rf {$intermediate}");
-    }
-
-    private function genTempIntermediateFile()
-    {
-        $intermediate =  $this->genTempFilePath();
-
-        if (touch($intermediate) === FALSE) {
-            throw new RuntimeException(
-                "Could not create intermediate dump file " .
-                "\"{$intermediate}\"!"
-            );
-        }
-
-        register_shutdown_function(function () use ($intermediate) {
-            // connection file clean-up
-            @unlink($intermediate);
-        });
-
-        return $intermediate;
     }
 
     /**
@@ -490,79 +462,9 @@ class MysqlDatabaseServer implements DatabaseServer
         return ! $this->isProduction();
     }
 
-    private function genTempFilePath()
+    public function getSslMode()
     {
-        return tempnam(sys_get_temp_dir(), '.datapatch.');
-    }
-
-    private function setupConnectionFile()
-    {
-        register_shutdown_function(function () {
-            // connection file clean-up
-            @unlink($this->connectionFile);
-        });
-
-        $this->connectionFile = $this->genTempFilePath();
-
-        if (($temp = fopen($this->connectionFile, 'w')) === FALSE) {
-            throw new RuntimeException(
-                "Could not create the connection file " .
-                "\"{$this->connectionFile}\"!"
-            );
-        }
-
-        if ($this->viaTcp()) {
-            $connectionParams = "host={$this->host}\n" .
-                                "port={$this->port}\n";
-        } else {
-            $connectionParams = "socket={$this->socket}\n";
-        }
-
-        $res = fwrite($temp,
-            "[client]\n" .
-            $connectionParams .
-            "user={$this->user}\n" .
-            "password={$this->password}\n"
-        );
-
-        if ($res === FALSE) {
-            throw new RuntimeException(
-                "The connection file \"{$this->connectionFile}\" " .
-                "could not be written!"
-            );
-        }
-
-        if (fflush($temp) === FALSE) {
-            throw new RuntimeException(
-                "The connection file \"{$this->connectionFile}\" " .
-                "could not be written!"
-            );
-        }
-
-        if (fclose($temp) === FALSE) {
-            throw new RuntimeException(
-                "The connection file \"{$this->connectionFile}\" " .
-                "could not be closed!"
-            );
-        }
-    }
-
-    private function looksLikeAScriptPath($path)
-    {
-        return $path == 'php://stdin' || is_file($path);
-    }
-
-    private function openScriptFile($filepath)
-    {
-        if ($filepath == "php://stdin") {
-            return $this->fopen($filepath, 'r');
-        } elseif (file_exists($filepath)) {
-            return $this->fopen($filepath, 'r');
-        } else {
-            throw new InvalidArgumentException(
-                "File \"{$filepath}\" does not exists!"
-            );
-        }
+        return $this->sslMode;
     }
 
     private function fopen($filepath, $mode)
@@ -582,87 +484,18 @@ class MysqlDatabaseServer implements DatabaseServer
     public function callMysqlClient($database, $input, $compressedInput = FALSE)
     {
         if (is_resource($input)) {
-            // Input is ready
+            throw new RuntimeException("Only file path input allowed!");
+        } elseif ($input == 'php://stdin') {
+            $tmp = new TempFile();
+            $tmp->sink($this->fopen($input, 'r'));
+            $input = $tmp->getPath();
+        } elseif (file_exists($input)) {
             $input = $input;
-        } elseif ($this->looksLikeAScriptPath($input)) {
-            $input = $this->openScriptFile($input);
         } else {
-            $input = strval($input);
+            $input = $this->buildTmpSqlInputFile($input);
         }
 
-        if (!$this->commandExists('mysql')) {
-            throw new RuntimeException(
-                "Command \"mysql\" not found"
-            );
-        }
-
-        if (!$this->commandExists('cat')) {
-            throw new RuntimeException(
-                "Command \"cat\" not found"
-            );
-        }
-
-        if (!$this->commandExists('gunzip')) {
-            throw new RuntimeException(
-                "Command \"cat\" not found"
-            );
-        }
-
-        if ($this->connectionFileNotCreated()) {
-            $this->setupConnectionFile();
-        }
-
-        if ($compressedInput) {
-            $cmd = "gunzip | ";
-        } else {
-            $cmd = "cat -- | ";
-        }
-
-        $cmd .= "mysql --defaults-file={$this->connectionFile} -n --table {$database}";
-
-        return $this->shell->run($cmd, $input);
-    }
-
-    private function connectionFileExists()
-    {
-        return file_exists($this->connectionFile);
-    }
-
-    private function connectionFileNotCreated()
-    {
-        return ! $this->connectionFileExists();
-    }
-
-    private function commandExists($command)
-    {
-        $return_var = 1;
-        $stdout = [];
-
-        exec(" ( command -v {$command} > /dev/null 2>&1 ) 2>&1 ", $stdout, $return_var);
-
-        return $return_var === 0;
-    }
-
-    private function checkIfWeCanWorkWith(DatabaseServer $target)
-    {
-        if ($target instanceof MysqlDatabaseServer) {} else {
-            throw new InvalidArgumentException(
-                "\"{$this}\" can not replicate to \"{$target}\" server!"
-            );
-        }
-    }
-
-    private function getSchemata($database)
-    {
-        return $this->fetch("
-            SELECT * FROM information_schema.SCHEMATA S
-            WHERE schema_name = '{$database}'
-        ");
-    }
-
-    private function fetch($query)
-    {
-        return $this->query($query)->fetch(PDO::FETCH_OBJ);
+        $this->mysql->exec($input, $compressedInput, $database);
     }
 
     /**
@@ -671,7 +504,13 @@ class MysqlDatabaseServer implements DatabaseServer
      */
     function restore($database, Snap $snap)
     {
-        $this->callMysqlClient($database, $snap->read(), TRUE);
+        if ($this->databaseDontExists($database)) {
+            $this->createDatabase($database, new DataBag([
+                'charset' => $snap->getCharset()
+            ]));
+        }
+
+        $this->callMysqlClient($database, $snap->getPhysicalPath(), TRUE);
     }
 
     /**
@@ -736,5 +575,43 @@ class MysqlDatabaseServer implements DatabaseServer
     private function wrap($patterns)
     {
         return is_array($patterns) ? $patterns : [ $patterns ];
+    }
+
+
+    public function dump(MysqlDatabase $database)
+    {
+        $snapper = $this->datashot->getDefaultSnapper();
+
+        $time = date("Ymdhis");
+
+        $out = $this->datashot->parse("/tmp/{$database}-{$time}");
+
+        $database->snap($snapper, $out);
+
+        return $out->toSnap();
+    }
+
+    private function databaseDontExists($database)
+    {
+        return ! $this->databaseExists($database);
+    }
+
+    private function databaseExists($name)
+    {
+        foreach ($this->getDatabases() as $database) {
+            if ($database->getName() == $name) {
+                return TRUE;
+            }
+        }
+
+        return FALSE;
+    }
+
+    private function buildTmpSqlInputFile($input)
+    {
+        $tmp = new TempFile();
+        $tmp->write($input);
+
+        return $tmp;
     }
 }

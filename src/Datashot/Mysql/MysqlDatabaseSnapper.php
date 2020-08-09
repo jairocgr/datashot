@@ -108,7 +108,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $end = microtime(true);
 
         $this->snapped($start, $end);
-
     }
 
     private function connect()
@@ -404,6 +403,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->appendOutput("
             mysqldump --defaults-file={$this->connectionFile} \
+                --set-gtid-purged=OFF \
+                --column-statistics=0 \
                 --no-create-info \
                 --no-data \
                 --routines \
@@ -506,6 +507,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->appendOutput("
             mysqldump --defaults-file={$this->connectionFile} \
+                --set-gtid-purged=OFF \
+                --column-statistics=0 \
                 --no-create-info \
                 --no-tablespaces \
                 --skip-triggers \
@@ -534,6 +537,8 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->appendOutput("
             mysqldump --defaults-file={$this->connectionFile} \
+                --set-gtid-purged=OFF \
+                --column-statistics=0 \
                 --no-data \
                 --skip-triggers \
                 --disable-keys \

@@ -12,12 +12,17 @@ class LocalRepository extends FilesystemRepo
 {
     const DRIVER_HANDLE = 'fs';
 
+    /**
+     * @var string
+     */
+    private $path;
+
     protected function createFilesystem(DataBag $data)
     {
-        $path = $this->extractPath($data);
+        $this->path = $this->extractPath($data);
 
         return new Filesystem(new Local(
-            $path,
+            $this->path,
             LOCK_EX,
             Local::SKIP_LINKS
         ));
@@ -40,5 +45,13 @@ class LocalRepository extends FilesystemRepo
                 'repo' => $this
             ]);
         });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    function getPhysicalPath(Snap $snap)
+    {
+        return realpath("{$this->path}/{$snap->getPath()}.gz");
     }
 }

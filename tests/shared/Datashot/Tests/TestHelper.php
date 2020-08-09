@@ -41,7 +41,7 @@ class TestHelper
     {
         if (class_exists("\Dotenv\Dotenv")) {
             // If has dotenv, tries to load the env file from the current dir
-            $dotenv = new \Dotenv\Dotenv($this->rootDir);
+            $dotenv = \Dotenv\Dotenv::createImmutable($this->rootDir);
 
             if (file_exists($this->rootDir . '/.env')) {
                 $dotenv->load();

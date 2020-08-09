@@ -63,4 +63,12 @@ interface DatabaseServer
      * @return boolean
      */
     function isDevelopment();
+
+    /**
+     * Check if is possible/allowed to replicate to the target server
+     *
+     * @param DatabaseServer $target
+     * @return bool
+     */
+    function canReplicateTo(DatabaseServer $target);
 }

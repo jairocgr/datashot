@@ -88,6 +88,8 @@ abstract class BaseCommand extends Command
         $this->setupListeners();
 
         $this->exec();
+
+        return 0;
     }
 
     /** @return array */

@@ -46,15 +46,15 @@ function createdb {
   echo "Creating $dbname at mysql$mysql_version..."
 
   echo "DROP DATABASE IF EXISTS $dbname" \
-    | mysql -h $host -P $port -u $user -p$passwd 2>&1 \
+    | mysql --ssl-mode=DISABLED -h $host -P $port -u $user -p$passwd 2>&1 \
     | hide_passwd_warn
 
   echo "CREATE DATABASE $dbname CHARSET $charset COLLATE $collation" \
-    | mysql -h $host -P $port -u $user -p$passwd 2>&1 \
+    | mysql --ssl-mode=DISABLED -h $host -P $port -u $user -p$passwd 2>&1 \
     | hide_passwd_warn
 
   cat tests/assets/schema.sql \
-    | mysql -h $host -P $port -u $user -p$passwd $dbname 2>&1 \
+    | mysql --ssl-mode=DISABLED -h $host -P $port -u $user -p$passwd $dbname 2>&1 \
     | hide_passwd_warn
 }
 
@@ -70,7 +70,7 @@ function dropdb {
   echo "Droping $dbname at mysql$mysql_version..."
 
   echo "DROP DATABASE IF EXISTS $dbname" \
-    | mysql -h $host -P $port -u $user -p$passwd 2>&1 \
+    | mysql --ssl-mode=DISABLED -h $host -P $port -u $user -p$passwd 2>&1 \
     | hide_passwd_warn
 }
 
@@ -99,7 +99,7 @@ function run_containers {
 
 function main {
   load_env
-  run_containers
+  # run_containers
   createdbs
 }
 

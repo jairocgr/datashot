@@ -209,7 +209,7 @@
       'user'        => 'ec2-user',
       'password'    => '',
       'private_key' => env('MIRROR_PEM'),
-      'root'        => '/var/www/html/files'
+      'root'        => 'snaps'
     ]
   ],
 

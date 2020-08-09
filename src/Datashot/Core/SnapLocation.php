@@ -3,6 +3,8 @@
 
 namespace Datashot\Core;
 
+use RuntimeException;
+
 class SnapLocation
 {
     /**
@@ -81,5 +83,18 @@ class SnapLocation
     public function to($database)
     {
         return new SnapLocation($this->repository, $this->path->to($database));
+    }
+
+    public function toSnap()
+    {
+        $item = $this->repository->get($this->path);
+
+        if ($item->isSnapshot()) {
+            return $item;
+        } else {
+            throw new RuntimeException(
+                "\"{$this}\" is not a single snapshot path!"
+            );
+        }
     }
 }

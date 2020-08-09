@@ -140,4 +140,12 @@ class CwdRepository implements SnapRepository
     {
         return 'cwd';
     }
+
+    /**
+     * @inheritDoc
+     */
+    function getPhysicalPath(Snap $snap)
+    {
+        return $this->repo($snap->getPath())->getPhysicalPath($snap);
+    }
 }

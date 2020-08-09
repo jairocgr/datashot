@@ -3,8 +3,10 @@
 namespace Datashot\Repository;
 
 use Aws\S3\S3Client;
+use Datashot\Core\Snap;
 use Datashot\Lang\Asserter;
 use Datashot\Lang\DataBag;
+use Datashot\Lang\TempFile;
 use InvalidArgumentException;
 use League\Flysystem\AwsS3v3\AwsS3Adapter;
 use League\Flysystem\Filesystem;
@@ -160,5 +162,18 @@ class S3Repository extends FilesystemRepo
                 "Invalid base_path {$a->vdump($value)} on \"{$this}\" repository!"
             );
         });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    function getPhysicalPath(Snap $snap)
+    {
+        $stream = $this->read($snap);
+
+        $tmp = new TempFile();
+        $tmp->sink($stream);
+
+        return $tmp->getPath();
     }
 }

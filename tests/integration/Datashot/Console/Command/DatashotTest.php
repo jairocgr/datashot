@@ -40,8 +40,8 @@ class DatashotTest extends TestCase
     {
         $this->ROOT_DIR = realpath(__DIR__.'/../../../../../');
 
-        $dotenv = new Dotenv($this->ROOT_DIR);
-        $dotenv->overload();
+        $dotenv = Dotenv::createImmutable($this->ROOT_DIR);
+        $dotenv->load();
 
         $this->shell = new Shell();
 
@@ -72,11 +72,11 @@ class DatashotTest extends TestCase
 
     private function setupConnectionFile()
     {
-        $socket = getenv('WORKBENCH_SOCKET');
-        $host = getenv('WORKBENCH_HOST');
-        $port = getenv('WORKBENCH_PORT');
-        $user = getenv('WORKBENCH_USER');
-        $password = getenv('WORKBENCH_PASSWORD');
+        $socket = env('WORKBENCH_SOCKET');
+        $host = env('WORKBENCH_HOST');
+        $port = env('WORKBENCH_PORT');
+        $user = env('WORKBENCH_USER');
+        $password = env('WORKBENCH_PASSWORD');
 
         $connectionFile = $commandFile = tempnam(sys_get_temp_dir(), '.test');
 
@@ -243,11 +243,11 @@ class DatashotTest extends TestCase
 
     private function connect($database)
     {
-        $socket = getenv('MYSQL57_SOCKET');
-        $host = getenv('MYSQL57_HOST');
-        $port = getenv('MYSQL57_PORT');
-        $user = getenv('MYSQL57_USER');
-        $password = getenv('MYSQL57_PASSWORD');
+        $socket = env('MYSQL57_SOCKET');
+        $host = env('MYSQL57_HOST');
+        $port = env('MYSQL57_PORT');
+        $user = env('MYSQL57_USER');
+        $password = env('MYSQL57_PASSWORD');
 
         if (empty($socket)) {
             $dsn = "mysql:host={$host};" .

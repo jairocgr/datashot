@@ -4,22 +4,18 @@ namespace Datashot;
 
 use Closure;
 use Datashot\Core\DatabaseServer;
-use Datashot\Core\DatabaseSnapper;
 use Datashot\Core\EventBus;
+use Datashot\Core\Path;
 use Datashot\Core\RepositoryItem;
-use Datashot\Core\SnapRepository;
 use Datashot\Core\Shell;
 use Datashot\Core\Snap;
-use Datashot\Core\Path;
-use Datashot\Core\SnapperConfiguration;
-use Datashot\Core\SnapRestorer;
 use Datashot\Core\SnapLocation;
+use Datashot\Core\SnapperConfiguration;
+use Datashot\Core\SnapRepository;
 use Datashot\Core\SnapUploader;
 use Datashot\Lang\Asserter;
 use Datashot\Lang\DataBag;
 use Datashot\Mysql\MysqlDatabaseServer;
-use Datashot\Mysql\MysqlDatabaseSnapper;
-use Datashot\Mysql\MysqlSnapRestorer;
 use Datashot\Repository\CwdRepository;
 use Datashot\Repository\LocalRepository;
 use Datashot\Repository\S3Repository;
@@ -208,7 +204,7 @@ class Datashot
         });
 
         if ($driver == MysqlDatabaseServer::DRIVER_HANDLE) {
-            return new MysqlDatabaseServer($name, $config, $this->bus, $this->shell);
+            return new MysqlDatabaseServer($this, $name, $config, $this->bus, $this->shell);
         }
 
         throw new InvalidArgumentException(
@@ -249,64 +245,6 @@ class Datashot
         throw new InvalidArgumentException(
             "Invalid repository driver \"{$driver}\"!"
         );
-    }
-
-    public function snap($spec)
-    {
-        $snapper = $this->buildSnapperFor($spec);
-
-        $snapper->snap();
-    }
-
-    /**
-     * @return DatabaseSnapper
-     */
-    private function buildSnapperFor($snapper)
-    {
-        $snapper = $this->config->getSnapper($snapper);
-
-        $driver = $snapper->getDriver();
-
-        switch ($driver) {
-            case 'mysql':
-
-                return new MysqlDatabaseSnapper($this->bus, $this->shell, $snapper);
-
-                break;
-            default:
-                throw new RuntimeException(
-                    "Insuported \"{$driver}\" database driver"
-                );
-        }
-    }
-
-    public function restore($snapper, $target)
-    {
-        $restore = $this->buildRestorer($snapper, $target);
-
-        $restore->restore();
-    }
-
-    /**
-     * @return SnapRestorer
-     */
-    private function buildRestorer($snapper, $target)
-    {
-        $settings = $this->config->getRestoringSettings($snapper, $target);
-
-        $driver = $settings->getDriver();
-
-        switch ($driver) {
-            case 'mysql':
-
-                return new MysqlSnapRestorer($this->bus, $this->shell, $settings);
-
-                break;
-            default:
-                throw new RuntimeException(
-                    "Insuported \"{$driver}\" database driver"
-                );
-        }
     }
 
     public function upload($snapper, $target)
@@ -564,5 +502,13 @@ class Datashot
         else throw new InvalidArgumentException(
             "Snapshot \"{$path}\" not found!"
         );
+    }
+
+    /**
+     * @return SnapperConfiguration
+     */
+    public function getDefaultSnapper()
+    {
+        return $this->defaultSnapper;
     }
 }

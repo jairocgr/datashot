@@ -39,6 +39,7 @@ interface Database
      * Snapshot the database
      *
      * @param SnapLocation $output
+     * @return Snap
      */
     function snap(SnapperConfiguration $config, SnapLocation $output);
 
@@ -55,7 +56,7 @@ interface Database
      * @param DatabaseServer $target
      * @param string|null $name
      */
-    function replicate(DatabaseServer $target, $name = NULL);
+    function replicateTo(DatabaseServer $target, $name);
 
     /**
      * Execute the command and return the number of modified lines

@@ -48,23 +48,23 @@ class ReplicateCommand extends BaseCommand
         $source = $this->getSourceServer();
         $target = $this->getTargetServer();
 
-        if ($this->canReplicateTo($target)) {
+        if ($target->isDevelopment() && $source->canReplicateTo($target)) {
 
             $databases = $this->getChosenDatabases();
 
-            foreach ($source->lookupDatabases($databases) as $database) {
+            foreach ($source->lookupDatabases($databases) as $source) {
 
-                $name = $this->targetDatabaseName($database);
+                $name = $this->targetDatabaseName($source);
 
-                $this->console->puts("Replicating <b>{$database}</b> to <b>{$name}</b> at <b>{$target}</b> server...");
+                $this->console->puts("Replicating <b>{$source}</b> to <b>{$name}</b> at <b>{$target}</b> server...");
 
-                $database->replicate($target, $name);
+                $source->replicateTo($target, $name);
             }
 
             $this->console->newLine();
 
         } else {
-            $this->console->warning("Replicating to {$target} is forbidden!");
+            $this->console->warning("Replicating to {$target} is not possible/forbidden!");
             $this->console->newLine();
         }
     }
@@ -92,11 +92,6 @@ class ReplicateCommand extends BaseCommand
         $dst = $this->input->getOption('to');
 
         return $this->datashot->getServer($dst);
-    }
-
-    private function canReplicateTo(DatabaseServer $target)
-    {
-        return $target->isDevelopment();
     }
 
     private function targetDatabaseName(Database $source)

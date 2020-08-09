@@ -55,4 +55,10 @@ interface SnapRepository
      * @return resource
      */
     function read(Snap $snap);
+
+    /**
+     * @param Snap $snap
+     * @return string
+     */
+    function getPhysicalPath(Snap $snap);
 }

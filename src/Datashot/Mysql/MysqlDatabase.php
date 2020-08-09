@@ -8,6 +8,7 @@ use Datashot\Core\DatabaseServer;
 use Datashot\Core\Snap;
 use Datashot\Core\SnapLocation;
 use Datashot\Core\SnapperConfiguration;
+use Datashot\Datashot;
 use PDO;
 
 class MysqlDatabase implements Database
@@ -70,7 +71,7 @@ class MysqlDatabase implements Database
      */
     function snap(SnapperConfiguration $config, SnapLocation $output)
     {
-        $this->server->getSnapper($config)->snap($this, $output);
+        return $this->server->getSnapper($config)->snap($this, $output);
     }
 
     /**
@@ -84,9 +85,13 @@ class MysqlDatabase implements Database
     /**
      * @inheritDoc
      */
-    function replicate(DatabaseServer $target, $name = NULL)
+    function replicateTo(DatabaseServer $target, $name)
     {
-        $this->server->replicate($this, $target, $name);
+        $intermediate = $this->dumpIt();
+
+        $target->restore($name, $intermediate);
+
+        $intermediate->rm();
     }
 
     /**
@@ -136,5 +141,13 @@ class MysqlDatabase implements Database
     public function getCollation()
     {
         return $this->conn()->query('SELECT @@collation_database')->fetchColumn();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function dumpIt()
+    {
+        return $this->server->dump($this);
     }
 }

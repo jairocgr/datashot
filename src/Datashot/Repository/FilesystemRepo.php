@@ -152,6 +152,9 @@ abstract class FilesystemRepo implements SnapRepository
         return $this->name;
     }
 
+    /**
+     * @inheritDoc
+     */
     function read(Snap $snap)
     {
         return $this->fs->readStream("{$snap->getPath()}.gz");

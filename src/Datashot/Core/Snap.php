@@ -102,6 +102,14 @@ class Snap implements RepositoryItem
         return sprintf("%.0f", $bytes / pow(1024, $factor)) . @$size[$factor];
     }
 
+    /**
+     *
+     */
+    public function getPhysicalPath()
+    {
+        return $this->repository->getPhysicalPath($this);
+    }
+
     public function __toString()
     {
         return $this->getName();

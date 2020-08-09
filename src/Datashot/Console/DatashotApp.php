@@ -23,8 +23,8 @@ class DatashotApp extends Application
 
         if (file_exists(getcwd() . '/.env')) {
             // If has dotenv, tries to load the env file from the current dir
-            $dotenv = new Dotenv(getcwd());
-            $dotenv->safeLoad();
+            $dotenv = Dotenv::createImmutable(getcwd());
+            $dotenv->load();
         }
 
         $this->addCommands([
