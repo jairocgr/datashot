@@ -33,3 +33,16 @@ services:
       MYSQL_ROOT_PASSWORD: $MYSQL56_PASSWORD
     networks:
       - datashot
+
+  php:
+    build:
+      context: .
+      dockerfile: docker/work/Dockerfile
+    container_name: datashot-php
+    environment:
+      PHP_IDE_CONFIG: serverName=datashot-php
+    volumes:
+       - ./:/datashot
+    networks:
+      - datashot
+    entrypoint: php
