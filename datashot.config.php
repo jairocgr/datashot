@@ -38,12 +38,12 @@
 
     'local' => [
       'driver'   => 'mysql',
-      'socket'   => env('LOCAL_SOCKET', ''),
-      'host'     => env('LOCAL_HOST', 'localhost'),
-      'port'     => env('LOCAL_PORT', 3306),
+      'socket'   => env('MYSQL_LOCAL_SOCKET', ''),
+      'host'     => env('MYSQL_LOCAL_HOST', 'localhost'),
+      'port'     => env('MYSQL_LOCAL_PORT', 3306),
 
-      'user'     => env('LOCAL_USER', 'root'),
-      'password' => env('LOCAL_PASSWORD', 'root')
+      'user'     => env('MYSQL_LOCAL_USER', 'root'),
+      'password' => env('MYSQL_LOCAL_PASSWORD', 'root')
     ],
   ],
 
