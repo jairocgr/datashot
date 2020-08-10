@@ -403,6 +403,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->appendOutput("
             mysqldump --defaults-file={$this->connectionFile} \
+                --ssl-mode=DISABLED \
                 --set-gtid-purged=OFF \
                 --column-statistics=0 \
                 --no-create-info \
@@ -507,6 +508,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->appendOutput("
             mysqldump --defaults-file={$this->connectionFile} \
+                --ssl-mode=DISABLED \
                 --set-gtid-purged=OFF \
                 --column-statistics=0 \
                 --no-create-info \
@@ -537,6 +539,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         $this->appendOutput("
             mysqldump --defaults-file={$this->connectionFile} \
+                --ssl-mode=DISABLED \
                 --set-gtid-purged=OFF \
                 --column-statistics=0 \
                 --no-data \
@@ -566,6 +569,10 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         $command = trim($command);
 
         $this->exec("
+            set -o errexit
+            set -o pipefail
+            set -o nounset
+
             {$command} \
             | sed -E 's/DEFINER=`[^`]+`@`[^`]+`/DEFINER=CURRENT_USER/g' \
             | gzip >> {$this->snapfile}
