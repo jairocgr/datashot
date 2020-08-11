@@ -405,7 +405,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
             mysqldump --defaults-file={$this->connectionFile} \
                 --ssl-mode=DISABLED \
                 --set-gtid-purged=OFF \
-                --column-statistics=0 \
                 --no-create-info \
                 --no-data \
                 --routines \
@@ -510,7 +509,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
             mysqldump --defaults-file={$this->connectionFile} \
                 --ssl-mode=DISABLED \
                 --set-gtid-purged=OFF \
-                --column-statistics=0 \
                 --no-create-info \
                 --no-tablespaces \
                 --skip-triggers \
@@ -541,7 +539,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
             mysqldump --defaults-file={$this->connectionFile} \
                 --ssl-mode=DISABLED \
                 --set-gtid-purged=OFF \
-                --column-statistics=0 \
                 --no-data \
                 --skip-triggers \
                 --disable-keys \
@@ -607,11 +604,20 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
             $connectionParams = "socket={$this->server->getSocket()}\n";
         }
 
+        if ($this->isMysqldump8()) {
+            $options = "[mysqldump]\n".
+                       "column-statistics=0\n";
+        } else {
+            $options = "";
+        }
+
         $res = fwrite($temp,
             "[client]\n" .
             $connectionParams .
             "user={$this->server->getUser()}\n" .
-            "password={$this->server->getPassword()}\n"
+            "password={$this->server->getPassword()}\n".
+            "\n".
+            $options
         );
 
         if ($res === FALSE) {
@@ -837,6 +843,25 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
             $out->aspirate($this->snapfile);
         } else {
             $this->destination->aspirate($this->snapfile);
+        }
+    }
+
+    private function isMysqldump8()
+    {
+        return preg_match("/^8\..+/", $this->readMysqlDumpVersion()) === 1;
+    }
+
+    private function readMysqlDumpVersion()
+    {
+        $out = $this->shell->run("mysqldump --version");
+        $matches = [];
+
+        preg_match("/(\d+\.\d+\.+\d+)/", $out, $matches);
+
+        if (isset($matches[1])) {
+            return trim($matches[1]);
+        } else {
+            return "unknown";
         }
     }
 }
