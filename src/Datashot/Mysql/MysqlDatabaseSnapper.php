@@ -183,7 +183,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function eachTable($closure)
     {
         $results = $this->pdo->query("
-            SELECT table_name
+            SELECT table_name as name
             FROM information_schema.tables
             where table_schema='{$this->database}' AND
                   table_type = 'BASE TABLE'
@@ -191,7 +191,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
 
         foreach ($results as $res) {
 
-            $table = $res->table_name;
+            $table = $res->name;
 
             call_user_func($closure, $table);
         }
