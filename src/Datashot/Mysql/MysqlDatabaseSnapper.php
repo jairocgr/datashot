@@ -129,12 +129,47 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
         ]);
     }
 
-    private function buildWhereClause($table)
+    private function hasWhereFor($table)
     {
         $wheres = $this->conf->get('wheres', []);
 
         if (isset($wheres[$table])) {
-            $where = $this->stringfy($wheres[$table]);
+            return TRUE;
+        }
+
+        foreach ($wheres as $tablePattern => $whereClause) {
+            if (fnmatch($tablePattern, $table)) {
+                return TRUE;
+            }
+        }
+
+        return FALSE;
+    }
+
+    private function getWhereFor($table)
+    {
+        $wheres = $this->conf->get('wheres', []);
+
+        if (isset($wheres[$table])) {
+            return $wheres[$table];
+        }
+
+        foreach ($wheres as $tablePattern => $whereClause) {
+            if (fnmatch($tablePattern, $table)) {
+                return $whereClause;
+            }
+        }
+
+        throw new RuntimeException("Didn't found where clause for table \"{$table}\"");
+    }
+
+    private function buildWhereClause($table)
+    {
+        $wheres = $this->conf->get('wheres', []);
+
+        if ($this->hasWhereFor($table) isset($wheres[$table])) {
+            $where = $this->getWhereFor($table);
+            $where = $this->stringfy($where);
         } elseif ($this->conf->hasParam('where')) {
             $where = $this->stringfy($this->conf->get('where'));
         } else {
