@@ -133,10 +133,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     {
         $wheres = $this->conf->get('wheres', []);
 
-        if (isset($wheres[$table])) {
-            return TRUE;
-        }
-
         foreach ($wheres as $tablePattern => $whereClause) {
             if (fnmatch($tablePattern, $table)) {
                 return TRUE;
@@ -149,10 +145,6 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     private function getWhereFor($table)
     {
         $wheres = $this->conf->get('wheres', []);
-
-        if (isset($wheres[$table])) {
-            return $wheres[$table];
-        }
 
         foreach ($wheres as $tablePattern => $whereClause) {
             if (fnmatch($tablePattern, $table)) {
@@ -167,7 +159,7 @@ class MysqlDatabaseSnapper implements DatabaseSnapper
     {
         $wheres = $this->conf->get('wheres', []);
 
-        if ($this->hasWhereFor($table) isset($wheres[$table])) {
+        if ($this->hasWhereFor($table)) {
             $where = $this->getWhereFor($table);
             $where = $this->stringfy($where);
         } elseif ($this->conf->hasParam('where')) {
